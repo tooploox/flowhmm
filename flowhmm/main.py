@@ -737,34 +737,7 @@ def main():
     )
     print("Done.")
     print(log_prob_results)
-    # print("logprob_flow_trained_continuous2= \t\t", logprob_flow_trained_continuous2)
-
-    # print("logprob_torch_orig = \t\t\t\t", logprob_torch_orig)
-    # print("logprob_torch_orig_continuous1 = \t\t", logprob_torch_orig_continuous2)
-    # print("logprob_torch_orig_continuous2 = \t\t", logprob_torch_orig_continuous2)
-    # print("logprob_torch_orig_continuous1/2= \t\t", logprob_torch_orig_continuous2 / 2)
-    # print("logprob_torch_orig_continuous2/2 = \t\t", logprob_torch_orig_continuous2 / 2)
-
-
-    # if show_plots:
-    #     show_distrib(
-    #         B_orig_large,
-    #         P_torch_flow_trained_large.T.cpu().detach().numpy(),
-    #         P1_text="B_orig_large",
-    #         P2_text="P_torch_flow_trained_large",
-    #         show_points=False,
-    #         grid=grid_large,
-    #         show_both_on_rhs=True,
-    #     )
-    #     show_distrib(
-    #         P_torch_flow_trained_large.T.cpu().detach().numpy(),
-    #         P_torch_flow_trained_large_norm.T.cpu().detach().numpy(),
-    #         P1_text="P_torch_flow_trained_large",
-    #         P2_text="P_torch_flow_trained_large_norm",
-    #         show_points=False,
-    #         grid=grid_large,
-    #         show_both_on_rhs=True,
-    #     )
+    print({"FlowHMM": log_prob_results["cflow"]/n,  "H-Gauss (hmmlearn)": log_prob_results["hmmlearn"]/n})
 
     if output_file is not None:
         data_to_save = {
