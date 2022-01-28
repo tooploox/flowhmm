@@ -745,62 +745,26 @@ def main():
     # print("logprob_torch_orig_continuous1/2= \t\t", logprob_torch_orig_continuous2 / 2)
     # print("logprob_torch_orig_continuous2/2 = \t\t", logprob_torch_orig_continuous2 / 2)
 
-    if (
-        EXAMPLE == "CONT_3_GAUSSIANS"
-    ):  # dla CONT_3_GAUSSIANS mozemy wiecej rzeczy liczyc dlatego osobno go tutaj rozpatrujemy
 
-        print(
-            "In THIS example (3 gaussians), we may also compute LOGPROB with original GausianHMM:"
-        )
-        logprob_hmmlearn_gaussian_orig1 = model1D_hmmlearn_gauss_orig.score(
-            obs_test.reshape(-1, 1)
-        )
-        logprob_hmmlearn_gaussian_orig2 = model1D_hmmlearn_gauss_orig.score(
-            obs_test_grid_labels.reshape(-1, 1)
-        )
-
-        # robimy HMM_NMF i podstawimy mu znane rzeczy
-        S_orig = torch.tensor(np.dot(np.diag(mu_orig), A_orig)).to(device)
-        S_orig_un = torch.log(S_orig)
-
-        model_hmm_nmf_torch_orig = HMM_NMF(
-            Shat_un_init=S_orig_un.to(device),
-            means1d_hat_init=torch.tensor(means_orig).to(device),
-            covs1d_hat_un_init=torch.log(torch.tensor(covs_orig).to(device)),
-            m=m,
-        )
-
-        print(
-            "Now we substitute original parameters to torch model and compute logprob, SHOULD BE THE SAME:"
-        )
-
-        logprob_torch_orig1 = model_hmm_nmf_torch_orig.continuous_score(obs_test)
-        # logprob_torch_orig2 = model_hmm_nmf_torch_orig.continuous_score(obs_test_grid_labels)
-
-        print("logprob_hmmlearn_gaussian_orig1 = \t", logprob_hmmlearn_gaussian_orig1)
-        # print("logprob_hmmlearn_gaussian_orig2 = \t", logprob_hmmlearn_gaussian_orig2)
-        print("logprob_torch_orig1 = \t", logprob_torch_orig1)
-        # print("logprob_torch_orig2 = \t", logprob_torch_orig2)
-
-    if show_plots:
-        show_distrib(
-            B_orig_large,
-            P_torch_flow_trained_large.T.cpu().detach().numpy(),
-            P1_text="B_orig_large",
-            P2_text="P_torch_flow_trained_large",
-            show_points=False,
-            grid=grid_large,
-            show_both_on_rhs=True,
-        )
-        show_distrib(
-            P_torch_flow_trained_large.T.cpu().detach().numpy(),
-            P_torch_flow_trained_large_norm.T.cpu().detach().numpy(),
-            P1_text="P_torch_flow_trained_large",
-            P2_text="P_torch_flow_trained_large_norm",
-            show_points=False,
-            grid=grid_large,
-            show_both_on_rhs=True,
-        )
+    # if show_plots:
+    #     show_distrib(
+    #         B_orig_large,
+    #         P_torch_flow_trained_large.T.cpu().detach().numpy(),
+    #         P1_text="B_orig_large",
+    #         P2_text="P_torch_flow_trained_large",
+    #         show_points=False,
+    #         grid=grid_large,
+    #         show_both_on_rhs=True,
+    #     )
+    #     show_distrib(
+    #         P_torch_flow_trained_large.T.cpu().detach().numpy(),
+    #         P_torch_flow_trained_large_norm.T.cpu().detach().numpy(),
+    #         P1_text="P_torch_flow_trained_large",
+    #         P2_text="P_torch_flow_trained_large_norm",
+    #         show_points=False,
+    #         grid=grid_large,
+    #         show_both_on_rhs=True,
+    #     )
 
     if output_file is not None:
         data_to_save = {

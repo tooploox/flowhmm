@@ -196,8 +196,7 @@ def show_distrib(
                 color=colors[ordering1[nr]],
             )
 
-    polyaxon.tracking.log_mpl_image(plt.gcf(), name=P1_text + "__" + P2_text)
-
+    # polyaxon.tracking.log_mpl_image(plt.gcf(), name=P1_text + "__" + P2_text)
     # plt.legend()
     # plt.show()
 
