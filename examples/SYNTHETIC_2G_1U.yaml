@@ -1,0 +1,14 @@
+# Example 1 (in the paper)
+
+data_type: synthetic    # DATA_TYPE = "SYNTHETIC"  <- one can give lower or upper case
+
+# nr_hidden_states: 3     # L = 3  # optional, will be taken from the length of the list hidden_states_distributions
+hidden_states_distributions: #
+  - {name: normal, params: {loc: 11.0, scale: 1.4142135623730951}}   # loc = mean, scale = std_dev
+  - {name: normal, params: {loc: 16.0, scale: 1.7320508075688772}}   # loc = mean, scale = std_dev
+  - {name: uniform, params: {low: 16.0, high: 26.0}}
+
+transition_matrix: [[0.0, 0.9, 0.1], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]] # A_orig
+
+nr_observations: 10000  # n = 10000
+grid_strategy: arange_0_max
