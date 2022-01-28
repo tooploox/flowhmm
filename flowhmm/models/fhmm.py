@@ -4,19 +4,16 @@ from typing import Tuple
 import numpy as np
 import polyaxon.tracking
 import torch
-from sklearn.preprocessing import normalize
+from hmmlearn.hmm import MultinomialHMM
+from icecream import ic
+from matplotlib import pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 from torch import distributions as td
-from matplotlib import pyplot as plt
-from icecream import ic
-from hmmlearn.hmm import MultinomialHMM
-from utils import build_model_tabular, standard_normal_logprob
+
+from flowhmm.utils import build_model_tabular, standard_normal_logprob
+
 
 # import IPython
-
-
-def test():
-    print("OK tst")
 
 
 def compute_MAD(
@@ -206,7 +203,6 @@ def show_distrib(
 
 
 def compute_score_hmmlearn_multin(L, observations, m, get_params=False):
-
     model1D_hmmlearn_multin_trained = MultinomialHMM(n_components=L)
     model1D_hmmlearn_multin_trained.n_features = m
     model1D_hmmlearn_multin_trained.fit(observations)
@@ -397,9 +393,7 @@ class HMM_NMF(torch.nn.Module):
         display_info_every_step=50,
     ):
 
-        Q_empir = nnmf_hmm_discrete(
-            observation_labels, self.m
-        )
+        Q_empir = nnmf_hmm_discrete(observation_labels, self.m)
         Q_empir_torch = torch.from_numpy(Q_empir).to(self.device)
         # print("Q_empir = ", Q_empir)
 

@@ -2,6 +2,7 @@ import argparse
 import os
 import pickle
 from typing import Optional, Dict
+
 import numpy as np
 import pandas as pd
 import polyaxon
@@ -15,10 +16,10 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
 
-from models.hmm_nmf import HMM_NMF, HMM_NMF_FLOW
-from models.hmm_nmf import compute_stat_distr
-from models.hmm_nmf import show_distrib, compute_total_var_dist, compute_MAD
-from utils import set_seed, print_red, load_example, BaseLogger
+from models.fhmm import HMM_NMF, HMM_NMF_FLOW
+from models.fhmm import compute_stat_distr
+from models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
+from utils import set_seed, load_example
 
 
 def ParseArguments():
