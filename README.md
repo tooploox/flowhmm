@@ -50,8 +50,8 @@ We chose `N=1000, 10000, 100000`; see [SYNTHETIC_2G_1U.yaml](examples/SYNTHETIC_
 
 ```bash
 python flowhmm/main.py -e examples/SYNTHETIC_1B_1U.yaml \
- --nr_epochs=500 \
- --add_noise=True --noise_var=0.1 \
+ --nr_epochs=1000 \
+ --add_noise=True --noise_var=0.00005 \
  --show_plots=False \
  --extra_n=$N --extra_L=$L 
 ```
