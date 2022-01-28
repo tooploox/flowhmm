@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "flowhmm"
+version = "0.1.0"
+description = ""
+authors = [
+    "Paweł Lorek <pawel.lorek@tooploox.com>",
+    "Maciej Zięba <maciej.zieba@tooploox.com>",
+    "Rafał Nowak <rafal.nowak@tooploox.com>",
+    "Tomasz Trzciński <tomasz.trzcinski@tooploox.com>"
+]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+hmmlearn = "^0.2.6"
+numpy = "^1.22.1"
+torch = "^1.10.2"
+pandas = "^1.4.0"
+polyaxon = "^1.14.3"
+icecream = "^2.1.1"
+matplotlib = "^3.5.1"
+termcolor = "^1.1.0"
+torchdiffeq = "^0.2.2"
+black = "^21.12b0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
