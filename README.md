@@ -28,3 +28,34 @@ Gaussian baselines.
 * Install all the required packages with single command
 > `poetry install`
 
+# Examples
+
+* synthetic dataset with the following distributions (see Example 1 in paper):
+  * 2 gaussians
+  * 1 uniform
+```bash
+python flowhmm/main.py -e examples/SYNTHETIC_2G_1U.yaml \
+ --nr_epochs=500 \
+ --add_noise=True -P noise_var=0.1 \
+ --show_plots=False \
+ --extra_n=$N 
+```
+where `N` variable is the length of training observations.
+We chose `N=1000, 10000, 100000`; see [SYNTHETIC_2G_1U.yaml](examples/SYNTHETIC_2G_1U.yaml) for more details.
+
+* synthetic dataset with the following distributions (see Example 2 in paper):
+  * 1 beta
+  * 1 uniform
+  * 1 gaussian
+
+```bash
+python flowhmm/main.py -e examples/SYNTHETIC_1B_1U.yaml \
+ --nr_epochs=500 \
+ --add_noise=True -P noise_var=0.1 \
+ --show_plots=False \
+ --extra_n=$N --extra_L=$L 
+```
+where `N` variable is the length of training observations and `L`
+is the number of hidden states (flow models to learn).
+We chose `N`=1000, 10000, 100000 and `L`=2, 3;
+see [SYNTHETIC_1B_1U_1G.yaml](examples/SYNTHETIC_1B_1U_1G.yaml) for more details.
