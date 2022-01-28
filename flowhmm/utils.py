@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-from collections import namedtuple
 from math import pi
 from typing import NamedTuple, Dict, Any
 

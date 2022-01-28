@@ -22,6 +22,7 @@ matplotlib = "^3.5.1"
 termcolor = "^1.1.0"
 torchdiffeq = "^0.2.2"
 black = "^21.12b0"
+flake8 = "^4.0.1"
 
 [tool.poetry.dev-dependencies]
 
