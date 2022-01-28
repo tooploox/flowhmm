@@ -1,5 +1,5 @@
 # FlowHMM: Flow-based continuous hidden Markov models
-<img alt="FlowHMM schema" style="float: right; padding-left: 25px" src="img/FlowHMM_schema.png">
+<img alt="FlowHMM schema" style="float: right; width: 450px; padding-left: 25px" src="img/FlowHMM_schema.png">
 
 ***Abstract***
 
