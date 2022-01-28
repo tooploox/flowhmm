@@ -3,10 +3,7 @@ name = "flowhmm"
 version = "0.1.0"
 description = ""
 authors = [
-    "Paweł Lorek <pawel.lorek@tooploox.com>",
-    "Maciej Zięba <maciej.zieba@tooploox.com>",
-    "Rafał Nowak <rafal.nowak@tooploox.com>",
-    "Tomasz Trzciński <tomasz.trzcinski@tooploox.com>"
+    "Anonymous Author <anon.email@domain.com>",
 ]
 license = "MIT"
 
