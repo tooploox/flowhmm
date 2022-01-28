@@ -1,2 +1,1 @@
-# flowhmm
-Flow-based continuous hidden Markov models
+# FlowHMM: Flow-based continuous hidden Markov models
