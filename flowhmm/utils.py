@@ -412,6 +412,7 @@ class ExampleConfig(NamedTuple):
     path: str
     data_type: str
     nr_hidden_states: int = None
+    nr_hidden_states_train: int = None
     nr_observations: int = None
     grid_size: int = None
     grid_strategy: str = "uniform"

@@ -9,7 +9,7 @@ import polyaxon
 import polyaxon.tracking
 import scipy.stats
 import torch
-from hmmlearn.hmm import GaussianHMM
+from hmmlearn.hmm import GaussianHMM, GMMHMM
 from icecream import ic
 from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
@@ -49,7 +49,8 @@ def ParseArguments():
         "-e",
         "--example_yaml",
         type=str,
-        default="examples/SYNTHETIC_2G_1U.yaml",
+        #default="examples/SYNTHETIC_2G_1U.yaml",
+        default="examples/SYNTHETIC_1B_1U_1G_v2.yaml",
         help="Path to example YAML config file",
     )
     parser.add_argument("--show_plots", default="yes", type=str, help="Show plots?")
@@ -90,6 +91,9 @@ def ParseArguments():
     )
     parser.add_argument("--time_length", type=float, default=0.5)
     parser.add_argument("--train_T", type=eval, default=True)
+
+    parser.add_argument("--n_mix", type=int, default=2, help = "only for GMMHMM: number of mixtures")
+
     parser.add_argument("--add_noise", type=eval, default=False, choices=[True, False])
     parser.add_argument("--noise_var", type=float, default=0.1)
     parser.add_argument(
@@ -188,6 +192,7 @@ def main():
     show_plots = args.show_plots == "yes"
     nr_epochs = args.nr_epochs
     nr_epochs_torch = args.nr_epochs_torch
+    n_mix = args.n_mix
 
     lrate = float(args.lrate)
 
@@ -230,6 +235,8 @@ def main():
 
         m = example_config.grid_size
         L = example_config.nr_hidden_states
+
+
 
         x_min = np.min(obs_train) - 0.05 * np.abs(np.min(obs_train))
         x_max = np.max(obs_train) + 0.05 * np.abs(np.max(obs_train))
@@ -283,9 +290,12 @@ def main():
     # SYNTHETIC DATASETS
     elif example_config.data_type == "synthetic":
 
-        L = example_config.nr_hidden_states or len(
+        #  some examples: real nr of hidden states: nr_hidden_states,
+        #  but we test on nr_hidden_states_train
+        L = example_config.nr_hidden_states_train or example_config.nr_hidden_states or len(
             example_config.hidden_states_distributions
         )
+
 
         m = example_config.grid_size
         n = example_config.nr_observations
@@ -389,6 +399,24 @@ def main():
     L2 = L
 
     # hmmlearn GaussianHMM
+    # L2 hidden states, each state is a mixture of n_mix components
+
+    model1D_hmmlearn_gmmhmm_trained = GMMHMM(
+        n_components=L2, covariance_type="full", n_mix=n_mix
+    )
+
+
+
+    model1D_hmmlearn_gmmhmm_trained.fit(obs_train.reshape(-1, 1))
+
+    logprob_hmmlearn_gmmhmm_trained = model1D_hmmlearn_gmmhmm_trained.score(
+        obs_test.reshape(-1, 1)
+    )
+
+
+
+
+    # hmmlearn GaussianHMM
     model1D_hmmlearn_gaussian_trained = GaussianHMM(
         n_components=L2, covariance_type="full"
     )
@@ -400,7 +428,29 @@ def main():
     means_trained_GaussianHMM = model1D_hmmlearn_gaussian_trained.means_.reshape(-1)
     covs_trained_GaussianHMM = model1D_hmmlearn_gaussian_trained.covars_.reshape(-1)
 
+
+    #GMMHMM
+    B_large_GMMHMM = np.zeros((L2, m_large))
+    for i in np.arange(L2):
+        for mixture_nr in np.arange(model1D_hmmlearn_gmmhmm_trained.n_mix):
+
+            B_large_GMM_tmp = np.array(
+                [
+                    scipy.stats.norm.pdf(
+                        x,
+                        model1D_hmmlearn_gmmhmm_trained.means_[i][mixture_nr].reshape(-1),
+                        np.sqrt(model1D_hmmlearn_gmmhmm_trained.covars_[i][mixture_nr].reshape(-1)),
+                    )
+                    for x in grid_large
+                ]
+            ).reshape(-1)
+            B_large_GMMHMM[i,:] = B_large_GMMHMM[i,:] + B_large_GMM_tmp*model1D_hmmlearn_gmmhmm_trained.weights_[i][mixture_nr]
+
+
+    #GMM
     B_large_GaussianHMM = np.zeros((L2, m_large))
+
+
 
     for i in np.arange(L2):
         B_large_GaussianHMM[i, :] = np.array(
@@ -543,6 +593,20 @@ def main():
             show_both_on_rhs=True,
         )
 
+
+        show_distrib(
+            P_torch_flow_trained_large.T.cpu().detach().numpy(),
+            P_torch_flow_trained_large.T.cpu().detach().numpy(),
+            P1_text="P_torch_flow_trained_large",
+            P2_text="P_torch_flow_trained_large",
+            show_points=False,
+            grid_large=grid_large,
+            grid=grid,
+            show_both_on_rhs=True,
+        )
+
+
+
     if DATA_TYPE != "REAL":
         MAD_gauss = compute_MAD(
             S_orig.to(device),
@@ -594,6 +658,17 @@ def main():
                     B_large_GaussianHMM,
                     P1_text="B_orig_large",
                     P2_text="B_large_GaussianHMM",
+                    show_points=False,
+                    grid_large=grid_large,
+                    grid=grid,
+                    show_both_on_rhs=True,
+                )
+
+                show_distrib(
+                    B_orig_large,
+                    B_large_GMMHMM,
+                    P1_text="B_orig_large",
+                    P2_text="B_large_GMMHMM",
                     show_points=False,
                     grid_large=grid_large,
                     grid=grid,
@@ -706,6 +781,9 @@ def main():
     # logprob_flow_trained_continuous2 = model_hmm_nmf_torch_flow.continuous_score(obs_test_grid_labels)
 
     print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained)
+    print("logprob_hmmlearn_gmmhmm_trained =\t\t", logprob_hmmlearn_gmmhmm_trained)
+
+
     print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1)
     # print("logprob_torch_trained_continuous2= \t\t", logprob_torch_trained_continuous2)
     print("logprob_flow_trained_continuous1= \t\t", logprob_flow_trained_continuous)

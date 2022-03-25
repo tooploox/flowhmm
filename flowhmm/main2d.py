@@ -14,6 +14,7 @@ from icecream import ic
 from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import   KMeans
 from termcolor import colored
 
 from models.fhmm import HMM_NMF, HMM_NMF_FLOW
@@ -30,6 +31,7 @@ from matplotlib.patches import Ellipse
 
 # sample usage
 # python -i flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 200  --show_plots=yes
+# python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 5000 --seed 139
 
 def ParseArguments():
     NONLINEARITIES = ["tanh", "relu", "softplus", "elu", "swish", "square", "identity"]
@@ -75,6 +77,8 @@ def ParseArguments():
         required=False,
         help="nr of epochs for torch",
     )
+    parser.add_argument("--init_with_kmeans", default=True, required=False, help="Init with kmeans' centers")
+    parser.add_argument("--set_seed", default=True, required=False, help="False = do not set")
     parser.add_argument(
         "--seed",
         default=1,
@@ -100,7 +104,7 @@ def ParseArguments():
     parser.add_argument("--time_length", type=float, default=0.5)
     parser.add_argument("--train_T", type=eval, default=True)
     parser.add_argument("--add_noise", type=eval, default=False, choices=[True, False])
-    parser.add_argument("--noise_var", type=float, default=0.1)
+    parser.add_argument("--noise_var", type=float, default=0.01)
     parser.add_argument(
         "--divergence_fn",
         type=str,
@@ -243,7 +247,12 @@ def main():
     ic(args)
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
-    set_seed(args.seed)
+
+    init_with_kmeans=args.init_with_kmeans
+    #print("init_with_kmeans = ",init_with_kmeans)
+
+    if args.set_seed:
+        set_seed(args.seed)
     example_config = load_example(args.example_yaml)
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
@@ -253,8 +262,11 @@ def main():
     show_plots = args.show_plots == "yes"
     nr_epochs = args.nr_epochs
     nr_epochs_torch = args.nr_epochs_torch
-
-    print("AAAAAAA ",nr_epochs,nr_epochs_torch)
+    add_noise = args.add_noise
+    noise_var = args.noise_var
+    loss_type = args.loss_type
+    n = example_config.nr_observations
+    print("AAAAAAA nr_epochs=",nr_epochs,", nr_epochs_torch=", nr_epochs_torch, ", n=",n)
 
     lrate = float(args.lrate)
 
@@ -382,8 +394,7 @@ def main():
             distributions=example_config.hidden_states_distributions,
         )
 
-        print("ASDF")
-        # quit()
+        #quit()
         x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
         x_max = np.max(obs_train[:, 0]) + 0.05 * np.abs(np.min(obs_train[:, 0]))
 
@@ -399,7 +410,7 @@ def main():
         #
         if grid_strategy == "uniform":
             grid_x = np.linspace(x_min, x_max, m)
-            grid_y = np.linspace(x_min, x_max, m)
+            grid_y = np.linspace(x_min, y_max, m)
             # cartesian product
             grid_all = np.transpose([np.tile(grid_x,len(grid_y)),np.repeat(grid_y,len(grid_x))])
             #m = grid size na 1 wspolrzednej, ostateczny jest mm
@@ -490,12 +501,43 @@ def main():
 
     L2=L
 
-    tmp=torch.rand((L, dim))  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
-    tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
-    tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
+    # Gauss HMM
+    # hmmlearn GaussianHMM
+    model_hmmlearn_gaussian_trained = GaussianHMM(
+        n_components=L2, covariance_type="full"
+    )
+    model_hmmlearn_gaussian_trained.fit(obs_train)
+
+    logprob_hmmlearn_gaussian_trained = model_hmmlearn_gaussian_trained.score(obs_test)
 
 
-    means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
+
+
+    model_hmmlearn_gaussian_grid_trained = GaussianHMM(
+        n_components=L2, covariance_type="full"
+    )
+    model_hmmlearn_gaussian_grid_trained.fit(obs_train_grid)
+
+    logprob_hmmlearn_gaussian_grid_trained = model_hmmlearn_gaussian_grid_trained.score(obs_test)
+
+    # Gauss TORCH
+    print("DDDDDDDDD init_with_kmeans =",init_with_kmeans, ", args.init_with_kmeans = ",args.init_with_kmeans)
+    if init_with_kmeans==True:
+        kmeans = KMeans(n_clusters=L, n_init=10)
+        kmeans.fit(obs_train_grid)
+        means1d_hat_init_2d = torch.nn.Parameter(torch.tensor(kmeans.cluster_centers_)).to(device)
+
+
+    else:
+        tmp=torch.rand((L, dim))  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
+        tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
+        tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
+        means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
+
+
+
+
+
 
     # np.
     #tensor([[3.3121, 2.7315],
@@ -531,7 +573,8 @@ def main():
         cholesky_L_params_init_2d = cholesky_L_params_init_2d,
         m=m,
         mm=mm,
-        loss_type='old'
+        #loss_type="old" #
+        loss_type=loss_type,
     )
 
     #print("Test")
@@ -545,6 +588,8 @@ def main():
         obs_train_grid_labels.reshape(-1),
         lr= lrate,
         nr_epochs=nr_epochs_torch,
+        add_noise = add_noise,
+        noise_var = noise_var
     )
     print(colored("DONE (fitting model_hmm_nmf_torch) ", "red"))
 
@@ -558,6 +603,25 @@ def main():
 
 
     if show_plots:
+        if add_noise:
+            print("Add noise var: ", noise_var)
+            grid_all_noise = torch.tensor(grid_all)  + torch.normal(mean=torch.zeros((len(grid_all), 2)), std=torch.ones((len(grid_all), 2)) * noise_var)
+            grid_all_noise = grid_all_noise.detach().numpy()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
+
+            ax.scatter(grid_all_noise[:, 0], grid_all_noise[:, 1], s=6, color='brown', label='grid_noise', alpha=0.9,
+                       marker="+")
+            ax.set_title("grid with noise")
+
+        else:
+            grid_all_noise = grid_all
+
+
+
+
         # INIT GAUSSIANS
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -580,13 +644,46 @@ def main():
 
             draw_ellipse(mean.detach().numpy(), cov_matrix.detach().numpy(), ax, alpha=0.4)
 
-        #FITTED GAUSSIANS
+        # FITTED GAUSSIANS HMMLEARN to orig. cont obs.
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        show_nr_points = np.minimum(1000, obs_train.shape[0])
+        ax.set_title("Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs" )
+        ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
+        ax.scatter(obs_train[:show_nr_points, 0], obs_train[:show_nr_points, 1], s=6, color='red', label="cont. obs")
+
+        for i, (mean, cov_matrix) in enumerate(zip(model_hmmlearn_gaussian_trained.means_,  model_hmmlearn_gaussian_trained.covars_)):
+            draw_ellipse(mean, cov_matrix, ax, alpha=0.4)
+
+            print("i = ", i)
+            print("mean = ", mean)
+            print("cov matrix = ", cov_matrix)
+
+        # FITTED GAUSSIANS HMMLEARN to DISCRETIZED obs.
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        show_nr_points = np.minimum(1000, obs_train.shape[0])
+        ax.set_title("Continuous obs. + fitted gaussians HMMLEARN to DISCRETIZED  obs.")
+        ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
+        ax.scatter(obs_train[:show_nr_points, 0], obs_train[:show_nr_points, 1], s=6, color='red', label="cont. obs")
+
+        for i, (mean, cov_matrix) in enumerate(zip(model_hmmlearn_gaussian_grid_trained.means_,  model_hmmlearn_gaussian_grid_trained.covars_)):
+            draw_ellipse(mean, cov_matrix, ax, alpha=0.4)
+
+            print("i = ", i)
+            print("mean = ", mean)
+            print("cov matrix = ", cov_matrix)
+
+
+        # FITTED GAUSSIANS TORCH
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
 
         show_nr_points = np.minimum(1000,obs_train.shape[0])
-        ax.set_title("Continuous obs. + fitted gaussians")
+        ax.set_title("Continuous obs. + fitted gaussians TORCH ")
         ax.scatter(grid_all[:,0], grid_all[:,1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
         ax.scatter(obs_train[:show_nr_points,0],obs_train[:show_nr_points,1] , s=6,  color='red', label="cont. obs")
         #ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',

@@ -97,7 +97,7 @@ def showQQ(Q1, Q1_text, Q2, Q2_text):
 
 
 def compute_P_torch(
-    grid: torch.Tensor, means: torch.Tensor, cholesky_L_params: torch.Tensor, normalize=True
+    grid: torch.Tensor, means: torch.Tensor, cholesky_L_params: torch.Tensor, normalize=True, noise_var=0.01, add_noise=False,
 ):
 
     L=means.shape[0]
@@ -105,6 +105,11 @@ def compute_P_torch(
     #old P = torch.zeros(len(grid), len(means)).to(grid.device)
 
     P = torch.zeros(len(grid), L).to(grid.device)
+
+
+    if add_noise: #:torch.normal(mean=torch.zeros(5), std=torch.ones(5)*0.1)
+        grid = grid + torch.normal(mean=torch.zeros((len(grid),2)), std=torch.ones((len(grid),2))*0.1)
+    # grid = grid + torch.normal(0, 0.1, size=len(grid)).to(device)
 
     for i, (mean, chol_param) in enumerate(zip(means, cholesky_L_params)):
 
@@ -114,12 +119,12 @@ def compute_P_torch(
         Cholesky_L[0, 0] = chol_param[0]
         Cholesky_L[1,1] = chol_param[1]
         Cholesky_L[0,1] = chol_param[2]
-        Cholesky_L[1,0] = chol_param[2]
+        Cholesky_L[1,0] = 0#chol_param[2]
 
         cov_matrix = torch.matmul(Cholesky_L,Cholesky_L.T)
 
         #dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
-        dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=torch.exp(cov_matrix))
+        dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
         P[:, i] = dist_normal.log_prob(grid)
 
     P = torch.exp(P)
@@ -129,11 +134,13 @@ def compute_P_torch(
 
 
 def compute_Q_torch(
-    grid: torch.Tensor, Shat: torch.Tensor, means: torch.Tensor, covs_un: torch.Tensor
+    grid: torch.Tensor, Shat: torch.Tensor, means: torch.Tensor, cholesky_params: torch.Tensor, add_noise: False, noise_var: 0.01
 ):
 
+
+
     # P = torch.exp(compute_P_torch(grid, means, covs))
-    P = compute_P_torch(grid, means, covs_un)
+    P = compute_P_torch(grid = grid, means = means, cholesky_L_params = cholesky_params, add_noise=add_noise, noise_var = noise_var)
     return P.matmul(Shat.matmul(P.T))
 
 #
@@ -314,16 +321,16 @@ class HMM_NMF_multivariate(torch.nn.Module):
         mu = mu.reshape(-1)
         return mu
 
-    def compute_P_torch(self, grid: torch.Tensor, add_noise=False, normalize=True):
-        P = torch.zeros(len(grid), len(self.means1d_hat)).to(grid.device)
-        for i, (mean, cov_un) in enumerate(zip(self.means1d_hat, self.covs1d_hat_un)):
-            dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
-            P[:, i] = dist_normal.log_prob(grid)
-
-        P = torch.exp(P)
-        if normalize:
-            P = torch.nn.functional.normalize(P, p=1, dim=0)
-        return P
+    # def compute_P_torch(self, grid: torch.Tensor, add_noise=False, normalize=True):
+    #     P = torch.zeros(len(grid), len(self.means1d_hat)).to(grid.device)
+    #     for i, (mean, cov_un) in enumerate(zip(self.means1d_hat, self.covs1d_hat_un)):
+    #         dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
+    #         P[:, i] = dist_normal.log_prob(grid)
+    #
+    #     P = torch.exp(P)
+    #     if normalize:
+    #         P = torch.nn.functional.normalize(P, p=1, dim=0)
+    #     return P
 
     # def score(self, observations):
     #     # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY
@@ -419,7 +426,10 @@ class HMM_NMF_multivariate(torch.nn.Module):
         nr_epochs=5000,
         lr=0.01,
         display_info_every_step=50,
+        add_noise = False,
+        noise_var=0.01
     ):
+
 
         Q_empir = nnmf_hmm_discrete(observation_labels, self.mm)
         Q_empir_torch = torch.from_numpy(Q_empir).to(self.device)
@@ -441,6 +451,8 @@ class HMM_NMF_multivariate(torch.nn.Module):
                 Shat,
                 self.means1d_hat,
                 self.cholesky_L_params,
+                add_noise = add_noise,
+                noise_var = 0.01
             )
             if self.loss_type == "old":
                 loss = torch.norm(Q_torch - Q_empir_torch)
