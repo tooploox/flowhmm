@@ -432,18 +432,19 @@ def main():
             mm=example_config.grid_size_all
             # tutaj robimy tak, ze osobno na x, osobno na y
 
-            kmeans_x = KMeans(n_clusters=mm)
+            kmeans_x = KMeans(n_clusters=m)
             kmeans_x.fit(obs_train[:, 0].reshape(-1,1))
             grid_x = kmeans_x.cluster_centers_.reshape(-1)
 
-            kmeans_y = KMeans(n_clusters=mm)
+            kmeans_y = KMeans(n_clusters=m)
             kmeans_y.fit(obs_train[:, 1].reshape(-1,1))
             grid_y = kmeans_y.cluster_centers_.reshape(-1)
 
-            #grid_all = np.transpose([np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))])
-            grid_all=np.zeros((mm,2))
-            grid_all[:,0]=grid_x
-            grid_all[:,1]=grid_y
+            grid_all = np.transpose([np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))])
+            # grid_all=np.zeros((mm,2))
+            # grid_all[:,0]=grid_x
+            # grid_all[:,1]=grid_y
+            mm = grid_all.shape[0]
             print("test")
         # elif grid_strategy == "mixed":
         #     kmeans = KMeans(n_clusters=int(np.floor(m / 2)))
