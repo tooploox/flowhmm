@@ -415,6 +415,7 @@ class ExampleConfig(NamedTuple):
     nr_hidden_states_train: int = None
     nr_observations: int = None
     grid_size: int = None
+    grid_size_all: int = None
     grid_strategy: str = "uniform"
     transition_matrix: list = None
     hidden_states_distributions: list = None

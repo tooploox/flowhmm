@@ -77,12 +77,12 @@ def compute_stat_distr(A):
 
 
 def nnmf_hmm_discrete(observations, m):
-    Q = np.zeros((m, m)) + 1
+    Q = np.zeros((m, m))   #+ 1
 
     for i in range(1, len(observations)):
         Q[observations[i - 1], observations[i]] += 1
 
-    Q /= len(observations) - 1 + m * m
+    Q /= len(observations)    # - 1 + m * m # ??
 
     return Q
 
@@ -136,8 +136,6 @@ def compute_P_torch(
 def compute_Q_torch(
     grid: torch.Tensor, Shat: torch.Tensor, means: torch.Tensor, cholesky_params: torch.Tensor, add_noise: False, noise_var: 0.01
 ):
-
-
 
     # P = torch.exp(compute_P_torch(grid, means, covs))
     P = compute_P_torch(grid = grid, means = means, cholesky_L_params = cholesky_params, add_noise=add_noise, noise_var = noise_var)

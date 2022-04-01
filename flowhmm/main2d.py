@@ -33,6 +33,11 @@ from matplotlib.patches import Ellipse
 # python -i flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 200  --show_plots=yes
 # python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 5000 --seed 139
 
+def boolean_string(s):
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+
 def ParseArguments():
     NONLINEARITIES = ["tanh", "relu", "softplus", "elu", "swish", "square", "identity"]
     SOLVERS = [
@@ -77,8 +82,8 @@ def ParseArguments():
         required=False,
         help="nr of epochs for torch",
     )
-    parser.add_argument("--init_with_kmeans", default=True, required=False, help="Init with kmeans' centers")
-    parser.add_argument("--set_seed", default=True, required=False, help="False = do not set")
+    parser.add_argument("--init_with_kmeans", type=boolean_string, default=True, required=False, help="Init with kmeans' centers")
+    parser.add_argument("--set_seed", type=boolean_string, default=True, required=False, help="False = do not set")
     parser.add_argument(
         "--seed",
         default=1,
@@ -135,7 +140,7 @@ def ParseArguments():
     )
     parser.add_argument("--batch_norm", type=eval, default=True, choices=[True, False])
     parser.add_argument("--bn_lag", type=float, default=0)
-    parser.add_argument("--polyaxon", type=bool, default=False)
+    parser.add_argument("--polyaxon", type=boolean_string, default=False)
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
     args = parser.parse_args()
@@ -248,8 +253,9 @@ def main():
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
 
-    init_with_kmeans=args.init_with_kmeans
-    #print("init_with_kmeans = ",init_with_kmeans)
+    init_with_kmeans=bool(args.init_with_kmeans)
+    print("init_with_kmeans = ",init_with_kmeans)
+
 
     if args.set_seed:
         set_seed(args.seed)
@@ -410,15 +416,35 @@ def main():
         #
         if grid_strategy == "uniform":
             grid_x = np.linspace(x_min, x_max, m)
-            grid_y = np.linspace(x_min, y_max, m)
+            grid_y = np.linspace(y_min, y_max, m)
             # cartesian product
             grid_all = np.transpose([np.tile(grid_x,len(grid_y)),np.repeat(grid_y,len(grid_x))])
             #m = grid size na 1 wspolrzednej, ostateczny jest mm
             mm=grid_all.shape[0]
-        # elif grid_strategy == "kmeans":
-        #     kmeans = KMeans(n_clusters=m)
-        #     kmeans.fit(obs_train.reshape(-1, 1))
-        #     grid = kmeans.cluster_centers_.reshape(-1)
+
+        elif grid_strategy == "kmeans":
+            mm=example_config.grid_size_all
+            kmeans = KMeans(n_clusters=mm)
+            kmeans.fit(obs_train)
+            grid_all = kmeans.cluster_centers_
+
+        elif grid_strategy == "kmeans2":
+            mm=example_config.grid_size_all
+            # tutaj robimy tak, ze osobno na x, osobno na y
+
+            kmeans_x = KMeans(n_clusters=mm)
+            kmeans_x.fit(obs_train[:, 0].reshape(-1,1))
+            grid_x = kmeans_x.cluster_centers_.reshape(-1)
+
+            kmeans_y = KMeans(n_clusters=mm)
+            kmeans_y.fit(obs_train[:, 1].reshape(-1,1))
+            grid_y = kmeans_y.cluster_centers_.reshape(-1)
+
+            #grid_all = np.transpose([np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))])
+            grid_all=np.zeros((mm,2))
+            grid_all[:,0]=grid_x
+            grid_all[:,1]=grid_y
+            print("test")
         # elif grid_strategy == "mixed":
         #     kmeans = KMeans(n_clusters=int(np.floor(m / 2)))
         #     kmeans.fit(obs_train.reshape(-1, 1))
@@ -483,15 +509,15 @@ def main():
         plt.title("Continuous observations: "+str(show_nr_points)+" of 2d points from obst_train")
         plt.scatter(grid_all[:,0], grid_all[:,1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
         plt.scatter(obs_train[:show_nr_points,0],obs_train[:show_nr_points,1] , s=6,  color='red', label="cont. obs")
-        plt.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
-                    label="discr. obs", alpha=0.3)
+        plt.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=16, color='green',
+                    label="discr. obs", alpha=0.6)
 
         plt.legend()
 
         plt.figure()
         show_nr_points = np.minimum(1000, obs_train_grid.shape[0])
         plt.title("Discretized observations: " + str(show_nr_points) + " of 2d points from obst_train")
-        plt.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
+        plt.scatter(grid_all[:, 0], grid_all[:, 1], s=14, color='gray', label='grid', alpha=0.5, marker="+")
         plt.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='red', label="discr. obs")
         plt.legend()
 
@@ -526,6 +552,7 @@ def main():
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
         means1d_hat_init_2d = torch.nn.Parameter(torch.tensor(kmeans.cluster_centers_)).to(device)
+        print("TTTTTTTTTTT")
 
 
     else:
@@ -533,8 +560,9 @@ def main():
         tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
         tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
         means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
+        print("FFFFFFFFFFF")
 
-
+    print("asdf")
 
 
 
@@ -683,9 +711,13 @@ def main():
 
 
         show_nr_points = np.minimum(1000,obs_train.shape[0])
-        ax.set_title("Continuous obs. + fitted gaussians TORCH ")
-        ax.scatter(grid_all[:,0], grid_all[:,1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
+        ax.set_title("Continuous obs. + fitted gaussians TORCH, loss = " + str(loss_type))
+        ax.scatter(grid_all[:,0], grid_all[:,1], s=14, color='gray', label='grid', alpha=0.5, marker="+")
         ax.scatter(obs_train[:show_nr_points,0],obs_train[:show_nr_points,1] , s=6,  color='red', label="cont. obs")
+        # ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
+        #             label="discr. obs", alpha=0.3)
+        ax.legend()
+
         #ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
         #            label="discr. obs", alpha=0.3)
 
