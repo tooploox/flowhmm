@@ -37,7 +37,7 @@ Gaussian baselines.
 python flowhmm/main.py -e examples/SYNTHETIC_2G_1U.yaml \
  --nr_epochs=500 \
  --add_noise=True --noise_var=0.1 \
- --show_plots=yes \
+ --show_plots \
  --extra_n=$N 
 ```
 where `N` variable is the length of training observations.
@@ -52,7 +52,7 @@ We chose `N=1000, 10000, 100000`; see [SYNTHETIC_2G_1U.yaml](examples/SYNTHETIC_
 python flowhmm/main.py -e examples/SYNTHETIC_1B_1U.yaml \
  --nr_epochs=1000 \
  --add_noise=True --noise_var=0.00005 \
- --show_plots=yes \
+ --show_plots \
  --extra_n=$N --extra_L=$L 
 ```
 where `N` variable is the length of training observations and `L`

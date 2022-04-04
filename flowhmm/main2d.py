@@ -1,10 +1,8 @@
 import argparse
 import os
-import pickle
 from typing import Optional, Dict
 
 import numpy as np
-import pandas as pd
 import polyaxon
 import polyaxon.tracking
 import scipy.stats
@@ -12,32 +10,19 @@ import torch
 from hmmlearn.hmm import GaussianHMM
 from icecream import ic
 from matplotlib import pyplot as plt
+from matplotlib.patches import Ellipse
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import KMeans
 from termcolor import colored
 
-from models.fhmm import HMM_NMF, HMM_NMF_FLOW
 from models.fhmm import compute_stat_distr
-from models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
-
 from models.fhmm_2d import HMM_NMF_multivariate
-
-
 from utils import set_seed, load_example
 
-
-from matplotlib.patches import Ellipse
 
 # sample usage
 # python -i flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 200  --show_plots=yes
 # python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 5000 --seed 139
-
-
-def boolean_string(s):
-    if s not in {"False", "True"}:
-        raise ValueError("Not a valid boolean string")
-    return s == "True"
 
 
 def ParseArguments():
@@ -70,13 +55,21 @@ def ParseArguments():
         default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
         help="Path to example YAML config file",
     )
-    parser.add_argument("--show_plots", default="yes", type=str, help="Show plots?")
+    parser.add_argument(
+        "--show_plots",
+        action="store_false",
+        help="Whether to show plots after the training.",
+    )
     parser.add_argument(
         "--nr_epochs", default=10, type=int, required=False, help="nr of epochs"
     )
     parser.add_argument("--loss_type", type=str, default="kld", choices=["old", "kld"])
 
-    parser.add_argument("--pretrain_flow", type=eval, default=False)
+    parser.add_argument(
+        "--pretrain_flow",
+        action="store_true",
+        help="Whether to use pretrained weights for training the flow model.",
+    )
     parser.add_argument(
         "--nr_epochs_torch",
         default=10,
@@ -86,25 +79,11 @@ def ParseArguments():
     )
     parser.add_argument(
         "--init_with_kmeans",
-        type=boolean_string,
-        default=True,
-        required=False,
-        help="Init with kmeans' centers",
+        action="store_false",
+        help="Whether to init with kmeans' centers",
     )
     parser.add_argument(
-        "--set_seed",
-        type=boolean_string,
-        default=True,
-        required=False,
-        help="False = do not set",
-    )
-    parser.add_argument(
-        "--seed",
-        default=1,
-        type=int,
-        required=False,
-        help="default seed"
-        #    "--seed", default=116, type=int, required=False, help="default seed"
+        "--seed", default=1, type=int, required=False, help="default seed"
     )
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
@@ -121,8 +100,8 @@ def ParseArguments():
         "--num_blocks", type=int, default=2, help="Number of stacked CNFs."
     )
     parser.add_argument("--time_length", type=float, default=0.5)
-    parser.add_argument("--train_T", type=eval, default=True)
-    parser.add_argument("--add_noise", type=eval, default=False, choices=[True, False])
+    parser.add_argument("--train_T", action="store_false")
+    parser.add_argument("--add_noise", action="store_true")
     parser.add_argument("--noise_var", type=float, default=0.01)
     parser.add_argument(
         "--divergence_fn",
@@ -147,14 +126,12 @@ def ParseArguments():
     parser.add_argument("--test_atol", type=float, default=None)
     parser.add_argument("--test_rtol", type=float, default=None)
 
-    parser.add_argument("--residual", type=eval, default=False, choices=[True, False])
-    parser.add_argument("--rademacher", type=eval, default=False, choices=[True, False])
-    parser.add_argument(
-        "--spectral_norm", type=eval, default=False, choices=[True, False]
-    )
-    parser.add_argument("--batch_norm", type=eval, default=True, choices=[True, False])
+    parser.add_argument("--residual", action="store_true")
+    parser.add_argument("--rademacher", action="store_true")
+    parser.add_argument(        "--spectral_norm", action="store_true"    )
+    parser.add_argument("--batch_norm", action="store_false")
     parser.add_argument("--bn_lag", type=float, default=0)
-    parser.add_argument("--polyaxon", type=boolean_string, default=False)
+    parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
     args = parser.parse_args()
@@ -271,15 +248,14 @@ def main():
     init_with_kmeans = bool(args.init_with_kmeans)
     print("init_with_kmeans = ", init_with_kmeans)
 
-    if args.set_seed:
-        set_seed(args.seed)
+    set_seed(args.seed)
     example_config = load_example(args.example_yaml)
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    show_plots = args.show_plots == "yes"
+    show_plots = args.show_plots
     nr_epochs = args.nr_epochs
     nr_epochs_torch = args.nr_epochs_torch
     add_noise = args.add_noise
