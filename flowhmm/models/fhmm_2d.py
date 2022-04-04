@@ -119,7 +119,7 @@ def compute_P_torch(
 
     for i, (mean, chol_param) in enumerate(zip(means, cholesky_L_params)):
 
-        Cholesky_L = torch.zeros((2, 2))
+        Cholesky_L = torch.zeros((2, 2), device=cholesky_L_params.device)
 
         Cholesky_L[0, 0] = chol_param[0]
         Cholesky_L[1, 1] = chol_param[1]

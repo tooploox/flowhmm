@@ -765,7 +765,7 @@ def main():
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
             draw_ellipse(
-                mean.detach().numpy(), cov_matrix.detach().numpy(), ax, alpha=0.4
+                mean.detach().cpu().numpy(), cov_matrix.detach().cpu().numpy(), ax, alpha=0.4
             )
 
         # FITTED GAUSSIANS HMMLEARN to orig. cont obs.
@@ -881,7 +881,7 @@ def main():
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
             draw_ellipse(
-                mean.detach().numpy(), cov_matrix.detach().numpy(), ax, alpha=0.4
+                mean.detach().cpu().numpy(), cov_matrix.detach().cpu().numpy(), ax, alpha=0.4
             )
 
             print("i = ", i)
