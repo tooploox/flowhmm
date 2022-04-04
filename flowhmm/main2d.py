@@ -622,9 +622,7 @@ def main():
         print("TTTTTTTTTTT")
 
     else:
-        tmp = torch.rand(
-            (L, dim)
-        )  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
+        tmp=torch.rand((L, dim))  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
         tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
         tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
         means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
