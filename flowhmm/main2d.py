@@ -128,7 +128,7 @@ def ParseArguments():
 
     parser.add_argument("--residual", action="store_true")
     parser.add_argument("--rademacher", action="store_true")
-    parser.add_argument(        "--spectral_norm", action="store_true"    )
+    parser.add_argument("--spectral_norm", action="store_true")
     parser.add_argument("--batch_norm", action="store_false")
     parser.add_argument("--bn_lag", type=float, default=0)
     parser.add_argument("--polyaxon", action="store_true")
@@ -598,7 +598,9 @@ def main():
         print("TTTTTTTTTTT")
 
     else:
-        tmp=torch.rand((L, dim))  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
+        tmp = torch.rand(
+            (L, dim)
+        )  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
         tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
         tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
         means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
@@ -739,7 +741,10 @@ def main():
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
             draw_ellipse(
-                mean.detach().cpu().numpy(), cov_matrix.detach().cpu().numpy(), ax, alpha=0.4
+                mean.detach().cpu().numpy(),
+                cov_matrix.detach().cpu().numpy(),
+                ax,
+                alpha=0.4,
             )
 
         # FITTED GAUSSIANS HMMLEARN to orig. cont obs.
@@ -855,7 +860,10 @@ def main():
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
             draw_ellipse(
-                mean.detach().cpu().numpy(), cov_matrix.detach().cpu().numpy(), ax, alpha=0.4
+                mean.detach().cpu().numpy(),
+                cov_matrix.detach().cpu().numpy(),
+                ax,
+                alpha=0.4,
             )
 
             print("i = ", i)
