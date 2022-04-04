@@ -77,12 +77,12 @@ def compute_stat_distr(A):
 
 
 def nnmf_hmm_discrete(observations, m):
-    Q = np.zeros((m, m))   #+ 1
+    Q = np.zeros((m, m))  # + 1
 
     for i in range(1, len(observations)):
         Q[observations[i - 1], observations[i]] += 1
 
-    Q /= len(observations)    # - 1 + m * m # ??
+    Q /= len(observations)  # - 1 + m * m # ??
 
     return Q
 
@@ -97,33 +97,38 @@ def showQQ(Q1, Q1_text, Q2, Q2_text):
 
 
 def compute_P_torch(
-    grid: torch.Tensor, means: torch.Tensor, cholesky_L_params: torch.Tensor, normalize=True, noise_var=0.01, add_noise=False,
+    grid: torch.Tensor,
+    means: torch.Tensor,
+    cholesky_L_params: torch.Tensor,
+    normalize=True,
+    noise_var=0.01,
+    add_noise=False,
 ):
 
-    L=means.shape[0]
+    L = means.shape[0]
 
-    #old P = torch.zeros(len(grid), len(means)).to(grid.device)
+    # old P = torch.zeros(len(grid), len(means)).to(grid.device)
 
     P = torch.zeros(len(grid), L).to(grid.device)
 
-
-    if add_noise: #:torch.normal(mean=torch.zeros(5), std=torch.ones(5)*0.1)
-        grid = grid + torch.normal(mean=torch.zeros((len(grid),2)), std=torch.ones((len(grid),2))*0.1)
+    if add_noise:  #:torch.normal(mean=torch.zeros(5), std=torch.ones(5)*0.1)
+        grid = grid + torch.normal(
+            mean=torch.zeros((len(grid), 2)), std=torch.ones((len(grid), 2)) * 0.1
+        )
     # grid = grid + torch.normal(0, 0.1, size=len(grid)).to(device)
 
     for i, (mean, chol_param) in enumerate(zip(means, cholesky_L_params)):
 
-        Cholesky_L=torch.zeros((2,2))
-
+        Cholesky_L = torch.zeros((2, 2))
 
         Cholesky_L[0, 0] = chol_param[0]
-        Cholesky_L[1,1] = chol_param[1]
-        Cholesky_L[0,1] = chol_param[2]
-        Cholesky_L[1,0] = 0#chol_param[2]
+        Cholesky_L[1, 1] = chol_param[1]
+        Cholesky_L[0, 1] = chol_param[2]
+        Cholesky_L[1, 0] = 0  # chol_param[2]
 
-        cov_matrix = torch.matmul(Cholesky_L,Cholesky_L.T)
+        cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
-        #dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
+        # dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
         dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
         P[:, i] = dist_normal.log_prob(grid)
 
@@ -134,12 +139,24 @@ def compute_P_torch(
 
 
 def compute_Q_torch(
-    grid: torch.Tensor, Shat: torch.Tensor, means: torch.Tensor, cholesky_params: torch.Tensor, add_noise: False, noise_var: 0.01
+    grid: torch.Tensor,
+    Shat: torch.Tensor,
+    means: torch.Tensor,
+    cholesky_params: torch.Tensor,
+    add_noise: False,
+    noise_var: 0.01,
 ):
 
     # P = torch.exp(compute_P_torch(grid, means, covs))
-    P = compute_P_torch(grid = grid, means = means, cholesky_L_params = cholesky_params, add_noise=add_noise, noise_var = noise_var)
+    P = compute_P_torch(
+        grid=grid,
+        means=means,
+        cholesky_L_params=cholesky_params,
+        add_noise=add_noise,
+        noise_var=noise_var,
+    )
     return P.matmul(Shat.matmul(P.T))
+
 
 #
 # def show_distrib(
@@ -249,7 +266,13 @@ class HMM_NMF_multivariate(torch.nn.Module):
     """
 
     def __init__(
-        self, Shat_un_init, means1d_hat_init, cholesky_L_params_init_2d, m, mm, loss_type="old"
+        self,
+        Shat_un_init,
+        means1d_hat_init,
+        cholesky_L_params_init_2d,
+        m,
+        mm,
+        loss_type="old",
     ):
         super(HMM_NMF_multivariate, self).__init__()
 
@@ -259,11 +282,9 @@ class HMM_NMF_multivariate(torch.nn.Module):
             Shat_un_init.clone().detach().requires_grad_(True)
         )
 
-
         self.means1d_hat = torch.nn.Parameter(
             means1d_hat_init.clone().detach().requires_grad_(True)
         )
-
 
         self.cholesky_L_params = torch.nn.Parameter(
             cholesky_L_params_init_2d.clone().detach().requires_grad_(True)
@@ -274,7 +295,7 @@ class HMM_NMF_multivariate(torch.nn.Module):
         # )
 
         self.m = m
-        self.mm=mm
+        self.mm = mm
         self.loss_type = loss_type
         self.device = self.means1d_hat.device
         # use the GPU
@@ -424,15 +445,12 @@ class HMM_NMF_multivariate(torch.nn.Module):
         nr_epochs=5000,
         lr=0.01,
         display_info_every_step=50,
-        add_noise = False,
-        noise_var=0.01
+        add_noise=False,
+        noise_var=0.01,
     ):
-
 
         Q_empir = nnmf_hmm_discrete(observation_labels, self.mm)
         Q_empir_torch = torch.from_numpy(Q_empir).to(self.device)
-
-
 
         # print("Q_empir = ", Q_empir)
 
@@ -449,8 +467,8 @@ class HMM_NMF_multivariate(torch.nn.Module):
                 Shat,
                 self.means1d_hat,
                 self.cholesky_L_params,
-                add_noise = add_noise,
-                noise_var = 0.01
+                add_noise=add_noise,
+                noise_var=0.01,
             )
             if self.loss_type == "old":
                 loss = torch.norm(Q_torch - Q_empir_torch)
@@ -504,4 +522,3 @@ class ListModule(torch.nn.Module):
 
     def __len__(self):
         return len(self._modules)
-
