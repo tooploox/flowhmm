@@ -1,10 +1,8 @@
 import argparse
 import os
-import pickle
 from typing import Optional, Dict
 
 import numpy as np
-import pandas as pd
 import polyaxon
 import polyaxon.tracking
 import scipy.stats
@@ -12,31 +10,20 @@ import torch
 from hmmlearn.hmm import GaussianHMM
 from icecream import ic
 from matplotlib import pyplot as plt
+from matplotlib.patches import Ellipse
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import   KMeans
 from termcolor import colored
 
-from models.fhmm import HMM_NMF, HMM_NMF_FLOW
 from models.fhmm import compute_stat_distr
-from models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
-
 from models.fhmm_2d import HMM_NMF_multivariate
-
-
 from utils import set_seed, load_example
 
-
-from matplotlib.patches import Ellipse
 
 # sample usage
 # python -i flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 200  --show_plots=yes
 # python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 5000 --seed 139
 
-def boolean_string(s):
-    if s not in {'False', 'True'}:
-        raise ValueError('Not a valid boolean string')
-    return s == 'True'
 
 def ParseArguments():
     NONLINEARITIES = ["tanh", "relu", "softplus", "elu", "swish", "square", "identity"]
@@ -68,13 +55,21 @@ def ParseArguments():
         default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
         help="Path to example YAML config file",
     )
-    parser.add_argument("--show_plots", default="yes", type=str, help="Show plots?")
+    parser.add_argument(
+        "--show_plots",
+        action="store_false",
+        help="Whether to show plots after the training.",
+    )
     parser.add_argument(
         "--nr_epochs", default=10, type=int, required=False, help="nr of epochs"
     )
     parser.add_argument("--loss_type", type=str, default="kld", choices=["old", "kld"])
 
-    parser.add_argument("--pretrain_flow", type=eval, default=False)
+    parser.add_argument(
+        "--pretrain_flow",
+        action="store_true",
+        help="Whether to use pretrained weights for training the flow model.",
+    )
     parser.add_argument(
         "--nr_epochs_torch",
         default=10,
@@ -82,15 +77,13 @@ def ParseArguments():
         required=False,
         help="nr of epochs for torch",
     )
-    parser.add_argument("--init_with_kmeans", type=boolean_string, default=True, required=False, help="Init with kmeans' centers")
-    parser.add_argument("--set_seed", type=boolean_string, default=True, required=False, help="False = do not set")
     parser.add_argument(
-        "--seed",
-        default=1,
-        type=int,
-        required=False,
-        help="default seed"
-        #    "--seed", default=116, type=int, required=False, help="default seed"
+        "--init_with_kmeans",
+        action="store_false",
+        help="Whether to init with kmeans' centers",
+    )
+    parser.add_argument(
+        "--seed", default=1, type=int, required=False, help="default seed"
     )
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
@@ -107,8 +100,8 @@ def ParseArguments():
         "--num_blocks", type=int, default=2, help="Number of stacked CNFs."
     )
     parser.add_argument("--time_length", type=float, default=0.5)
-    parser.add_argument("--train_T", type=eval, default=True)
-    parser.add_argument("--add_noise", type=eval, default=False, choices=[True, False])
+    parser.add_argument("--train_T", action="store_false")
+    parser.add_argument("--add_noise", action="store_true")
     parser.add_argument("--noise_var", type=float, default=0.01)
     parser.add_argument(
         "--divergence_fn",
@@ -133,14 +126,12 @@ def ParseArguments():
     parser.add_argument("--test_atol", type=float, default=None)
     parser.add_argument("--test_rtol", type=float, default=None)
 
-    parser.add_argument("--residual", type=eval, default=False, choices=[True, False])
-    parser.add_argument("--rademacher", type=eval, default=False, choices=[True, False])
-    parser.add_argument(
-        "--spectral_norm", type=eval, default=False, choices=[True, False]
-    )
-    parser.add_argument("--batch_norm", type=eval, default=True, choices=[True, False])
+    parser.add_argument("--residual", action="store_true")
+    parser.add_argument("--rademacher", action="store_true")
+    parser.add_argument("--spectral_norm", action="store_true")
+    parser.add_argument("--batch_norm", action="store_false")
     parser.add_argument("--bn_lag", type=float, default=0)
-    parser.add_argument("--polyaxon", type=boolean_string, default=False)
+    parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
     args = parser.parse_args()
@@ -178,26 +169,28 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
     #     func = mapping[name]
     #     return func(**params)
 
-    #dimension:
-    dim=2 # to powinno sie odczytac z params
+    # dimension:
+    dim = 2  # to powinno sie odczytac z params
 
-    observations = np.zeros((n,dim))
-    #n_states = len(distributions)
+    observations = np.zeros((n, dim))
+    # n_states = len(distributions)
     n_states = transmat.shape[0]
     current_state = np.random.choice(np.arange(n_states), size=1, p=mu.reshape(-1))[0]
     for k in np.arange(n):
         ## to na pewno da sie lepiej:
-        if distributions[current_state]['name']=="uniform":
-            params_low = distributions[current_state]['params']['low']
-            params_high = distributions[current_state]['params']['high']
-            observations[k,:] = [np.random.uniform(params_low[0],params_high[0]),np.random.uniform(params_low[1],params_high[1])]
+        if distributions[current_state]["name"] == "uniform":
+            params_low = distributions[current_state]["params"]["low"]
+            params_high = distributions[current_state]["params"]["high"]
+            observations[k, :] = [
+                np.random.uniform(params_low[0], params_high[0]),
+                np.random.uniform(params_low[1], params_high[1]),
+            ]
             # sample(**distributions[current_state])
 
-        if distributions[current_state]['name'] == "normal":
-            params_mean=distributions[current_state]['params']['mean']
-            params_cov=distributions[current_state]['params']['cov']
+        if distributions[current_state]["name"] == "normal":
+            params_mean = distributions[current_state]["params"]["mean"]
+            params_cov = distributions[current_state]["params"]["cov"]
             observations[k, :] = np.random.multivariate_normal(params_mean, params_cov)
-
 
         current_state = np.random.choice(
             np.arange(n_states), 1, p=transmat[current_state, :].reshape(-1)
@@ -243,8 +236,7 @@ def draw_ellipse(position, covariance, ax, alpha):
 
     # Draw the Ellipse
     for nsig in range(1, 4):
-        ax.add_patch(Ellipse(position, nsig * width, nsig * height,
-                             angle, alpha=alpha))
+        ax.add_patch(Ellipse(position, nsig * width, nsig * height, angle, alpha=alpha))
 
 
 def main():
@@ -253,26 +245,31 @@ def main():
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
 
-    init_with_kmeans=bool(args.init_with_kmeans)
-    print("init_with_kmeans = ",init_with_kmeans)
+    init_with_kmeans = bool(args.init_with_kmeans)
+    print("init_with_kmeans = ", init_with_kmeans)
 
-
-    if args.set_seed:
-        set_seed(args.seed)
+    set_seed(args.seed)
     example_config = load_example(args.example_yaml)
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    show_plots = args.show_plots == "yes"
+    show_plots = args.show_plots
     nr_epochs = args.nr_epochs
     nr_epochs_torch = args.nr_epochs_torch
     add_noise = args.add_noise
     noise_var = args.noise_var
     loss_type = args.loss_type
     n = example_config.nr_observations
-    print("AAAAAAA nr_epochs=",nr_epochs,", nr_epochs_torch=", nr_epochs_torch, ", n=",n)
+    print(
+        "AAAAAAA nr_epochs=",
+        nr_epochs,
+        ", nr_epochs_torch=",
+        nr_epochs_torch,
+        ", n=",
+        n,
+    )
 
     lrate = float(args.lrate)
 
@@ -373,9 +370,9 @@ def main():
             example_config.hidden_states_distributions
         )
 
-        dim=2 # na razie recznie
+        dim = 2  # na razie recznie
 
-        m = example_config.grid_size # na jednej wspolrzednej
+        m = example_config.grid_size  # na jednej wspolrzednej
         n = example_config.nr_observations
         if args.extra_n:
             n = args.extra_n
@@ -400,13 +397,12 @@ def main():
             distributions=example_config.hidden_states_distributions,
         )
 
-        #quit()
+        # quit()
         x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
         x_max = np.max(obs_train[:, 0]) + 0.05 * np.abs(np.min(obs_train[:, 0]))
 
         y_min = np.min(obs_train[:, 1]) - 0.05 * np.abs(np.min(obs_train[:, 1]))
         y_max = np.max(obs_train[:, 1]) + 0.05 * np.abs(np.min(obs_train[:, 1]))
-
 
         #
         grid_strategy = example_config.grid_strategy
@@ -418,29 +414,33 @@ def main():
             grid_x = np.linspace(x_min, x_max, m)
             grid_y = np.linspace(y_min, y_max, m)
             # cartesian product
-            grid_all = np.transpose([np.tile(grid_x,len(grid_y)),np.repeat(grid_y,len(grid_x))])
-            #m = grid size na 1 wspolrzednej, ostateczny jest mm
-            mm=grid_all.shape[0]
+            grid_all = np.transpose(
+                [np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))]
+            )
+            # m = grid size na 1 wspolrzednej, ostateczny jest mm
+            mm = grid_all.shape[0]
 
         elif grid_strategy == "kmeans":
-            mm=example_config.grid_size_all
+            mm = example_config.grid_size_all
             kmeans = KMeans(n_clusters=mm)
             kmeans.fit(obs_train)
             grid_all = kmeans.cluster_centers_
 
         elif grid_strategy == "kmeans2":
-            mm=example_config.grid_size_all
+            mm = example_config.grid_size_all
             # tutaj robimy tak, ze osobno na x, osobno na y
 
             kmeans_x = KMeans(n_clusters=m)
-            kmeans_x.fit(obs_train[:, 0].reshape(-1,1))
+            kmeans_x.fit(obs_train[:, 0].reshape(-1, 1))
             grid_x = kmeans_x.cluster_centers_.reshape(-1)
 
             kmeans_y = KMeans(n_clusters=m)
-            kmeans_y.fit(obs_train[:, 1].reshape(-1,1))
+            kmeans_y.fit(obs_train[:, 1].reshape(-1, 1))
             grid_y = kmeans_y.cluster_centers_.reshape(-1)
 
-            grid_all = np.transpose([np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))])
+            grid_all = np.transpose(
+                [np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))]
+            )
             # grid_all=np.zeros((mm,2))
             # grid_all[:,0]=grid_x
             # grid_all[:,1]=grid_y
@@ -467,7 +467,7 @@ def main():
 
         # Pamietajmy: m=grid_all.shape[0]
         grid_labels = list(range(mm))
-        #old: grid_labels = list(range(m))
+        # old: grid_labels = list(range(m))
 
         # grid_large = np.linspace(np.min(grid), np.max(grid), m * 10)
         #
@@ -480,15 +480,11 @@ def main():
         #
         knn.fit(grid_all, grid_labels)
         #
-        obs_train_grid_labels = (
-             knn.predict(obs_train).reshape(-1, 1).astype(int)
-         )
-        obs_test_grid_labels = (
-             knn.predict(obs_test).reshape(-1, 1).astype(int)
-        )
+        obs_train_grid_labels = knn.predict(obs_train).reshape(-1, 1).astype(int)
+        obs_test_grid_labels = knn.predict(obs_test).reshape(-1, 1).astype(int)
         #
-        obs_train_grid = grid_all[obs_train_grid_labels].reshape(n,dim)
-        obs_test_grid = grid_all[obs_test_grid_labels].reshape(n,dim)
+        obs_train_grid = grid_all[obs_train_grid_labels].reshape(n, dim)
+        obs_test_grid = grid_all[obs_test_grid_labels].reshape(n, dim)
         #
         # B_orig_large = compute_pdf_matrix(
         #     example_config.hidden_states_distributions, grid_large
@@ -506,27 +502,67 @@ def main():
 
     if show_plots:
         plt.figure()
-        show_nr_points = np.minimum(1000,obs_train.shape[0])
-        plt.title("Continuous observations: "+str(show_nr_points)+" of 2d points from obst_train")
-        plt.scatter(grid_all[:,0], grid_all[:,1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
-        plt.scatter(obs_train[:show_nr_points,0],obs_train[:show_nr_points,1] , s=6,  color='red', label="cont. obs")
-        plt.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=16, color='green',
-                    label="discr. obs", alpha=0.6)
+        show_nr_points = np.minimum(1000, obs_train.shape[0])
+        plt.title(
+            "Continuous observations: "
+            + str(show_nr_points)
+            + " of 2d points from obst_train"
+        )
+        plt.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=4,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        plt.scatter(
+            obs_train[:show_nr_points, 0],
+            obs_train[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="cont. obs",
+        )
+        plt.scatter(
+            obs_train_grid[:show_nr_points, 0],
+            obs_train_grid[:show_nr_points, 1],
+            s=16,
+            color="green",
+            label="discr. obs",
+            alpha=0.6,
+        )
 
         plt.legend()
 
         plt.figure()
         show_nr_points = np.minimum(1000, obs_train_grid.shape[0])
-        plt.title("Discretized observations: " + str(show_nr_points) + " of 2d points from obst_train")
-        plt.scatter(grid_all[:, 0], grid_all[:, 1], s=14, color='gray', label='grid', alpha=0.5, marker="+")
-        plt.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='red', label="discr. obs")
+        plt.title(
+            "Discretized observations: "
+            + str(show_nr_points)
+            + " of 2d points from obst_train"
+        )
+        plt.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=14,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        plt.scatter(
+            obs_train_grid[:show_nr_points, 0],
+            obs_train_grid[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="discr. obs",
+        )
         plt.legend()
 
+    # RECZNIE rozmiary, do zmiany
 
-
-    #RECZNIE rozmiary, do zmiany
-
-    L2=L
+    L2 = L
 
     # Gauss HMM
     # hmmlearn GaussianHMM
@@ -537,27 +573,34 @@ def main():
 
     logprob_hmmlearn_gaussian_trained = model_hmmlearn_gaussian_trained.score(obs_test)
 
-
-
-
     model_hmmlearn_gaussian_grid_trained = GaussianHMM(
         n_components=L2, covariance_type="full"
     )
     model_hmmlearn_gaussian_grid_trained.fit(obs_train_grid)
 
-    logprob_hmmlearn_gaussian_grid_trained = model_hmmlearn_gaussian_grid_trained.score(obs_test)
+    logprob_hmmlearn_gaussian_grid_trained = model_hmmlearn_gaussian_grid_trained.score(
+        obs_test
+    )
 
     # Gauss TORCH
-    print("DDDDDDDDD init_with_kmeans =",init_with_kmeans, ", args.init_with_kmeans = ",args.init_with_kmeans)
-    if init_with_kmeans==True:
+    print(
+        "DDDDDDDDD init_with_kmeans =",
+        init_with_kmeans,
+        ", args.init_with_kmeans = ",
+        args.init_with_kmeans,
+    )
+    if init_with_kmeans == True:
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
-        means1d_hat_init_2d = torch.nn.Parameter(torch.tensor(kmeans.cluster_centers_)).to(device)
+        means1d_hat_init_2d = torch.nn.Parameter(
+            torch.tensor(kmeans.cluster_centers_)
+        ).to(device)
         print("TTTTTTTTTTT")
 
-
     else:
-        tmp=torch.rand((L, dim))  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
+        tmp = torch.rand(
+            (L, dim)
+        )  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
         tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
         tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
         means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
@@ -565,48 +608,45 @@ def main():
 
     print("asdf")
 
-
-
-
     # np.
-    #tensor([[3.3121, 2.7315],
-        # [3.0476, 2.1365],
-        # [3.0364, 2.5332]], requires_grad=True)
-
+    # tensor([[3.3121, 2.7315],
+    # [3.0476, 2.1365],
+    # [3.0364, 2.5332]], requires_grad=True)
 
     print("means1d_hat_init=", means1d_hat_init_2d)
 
     # to tak jak bylo w 1d
     Shat_un_init = torch.nn.Parameter(torch.randn(L2, L2)).to(device)
     # un = unnormalized
-    #covs1d_hat_un_init = torch.nn.Parameter(torch.randn(L2) / 2).to(device)
+    # covs1d_hat_un_init = torch.nn.Parameter(torch.randn(L2) / 2).to(device)
 
-    #UWAGA: to trzeba sprytniej... maja byc macierze, ale symetryczne..
-    #dlatego parametrem dla kazdego stanu ukrytego jest (c00,c01,c11)
-    #z czego potem robimy macierz L = [[c00,0],[c01,c11]] = dolnotrojkatna
-    #a potem covariance_matrix = L*L^T (rozklad Choleskyego)
+    # UWAGA: to trzeba sprytniej... maja byc macierze, ale symetryczne..
+    # dlatego parametrem dla kazdego stanu ukrytego jest (c00,c01,c11)
+    # z czego potem robimy macierz L = [[c00,0],[c01,c11]] = dolnotrojkatna
+    # a potem covariance_matrix = L*L^T (rozklad Choleskyego)
 
-    cholesky_L_params_init_2d =  torch.nn.Parameter((2*torch.rand(L2,3) -1)/ 10).to(device)
+    cholesky_L_params_init_2d = torch.nn.Parameter((2 * torch.rand(L2, 3) - 1) / 10).to(
+        device
+    )
     ic(cholesky_L_params_init_2d)
-    #na przyklad:
+    # na przyklad:
     #  tensor([[ 0.4633, -0.1349,  0.1217],
     #     [-0.1054, -0.0575,  0.0717],
     #     [-0.1036, -0.2325, -0.0115]], requires_grad=True)
 
-
     model_hmm_nmf_torch_multivariate = HMM_NMF_multivariate(
         Shat_un_init=Shat_un_init,
         means1d_hat_init=means1d_hat_init_2d,
-        #covs1d_hat_un_init=covs1d_hat_un_init_2d,
-        #lepsza nazwa:
-        cholesky_L_params_init_2d = cholesky_L_params_init_2d,
+        # covs1d_hat_un_init=covs1d_hat_un_init_2d,
+        # lepsza nazwa:
+        cholesky_L_params_init_2d=cholesky_L_params_init_2d,
         m=m,
         mm=mm,
-        #loss_type="old" #
+        # loss_type="old" #
         loss_type=loss_type,
     )
 
-    #print("Test")
+    # print("Test")
     # P_torch_init_large = model_hmm_nmf_torch.compute_P_torch(
     #     torch.tensor(grid_large).to(device), normalize=False
     # )
@@ -615,41 +655,54 @@ def main():
     model_hmm_nmf_torch_multivariate.fit(
         torch.Tensor(grid_all).to(device),
         obs_train_grid_labels.reshape(-1),
-        lr= lrate,
+        lr=lrate,
         nr_epochs=nr_epochs_torch,
-        add_noise = add_noise,
-        noise_var = noise_var
+        add_noise=add_noise,
+        noise_var=noise_var,
     )
     print(colored("DONE (fitting model_hmm_nmf_torch) ", "red"))
 
     print("means1d_hat_init=", means1d_hat_init_2d)
 
-    trained_means=model_hmm_nmf_torch_multivariate.get_means1d()
-    trained_cholesky_L_params= model_hmm_nmf_torch_multivariate.get_cholesky_params()
+    trained_means = model_hmm_nmf_torch_multivariate.get_means1d()
+    trained_cholesky_L_params = model_hmm_nmf_torch_multivariate.get_cholesky_params()
 
     print("trained_means =", trained_means)
-
-
 
     if show_plots:
         if add_noise:
             print("Add noise var: ", noise_var)
-            grid_all_noise = torch.tensor(grid_all)  + torch.normal(mean=torch.zeros((len(grid_all), 2)), std=torch.ones((len(grid_all), 2)) * noise_var)
+            grid_all_noise = torch.tensor(grid_all) + torch.normal(
+                mean=torch.zeros((len(grid_all), 2)),
+                std=torch.ones((len(grid_all), 2)) * noise_var,
+            )
             grid_all_noise = grid_all_noise.detach().numpy()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
+            ax.scatter(
+                grid_all[:, 0],
+                grid_all[:, 1],
+                s=4,
+                color="gray",
+                label="grid",
+                alpha=0.5,
+                marker="+",
+            )
 
-            ax.scatter(grid_all_noise[:, 0], grid_all_noise[:, 1], s=6, color='brown', label='grid_noise', alpha=0.9,
-                       marker="+")
+            ax.scatter(
+                grid_all_noise[:, 0],
+                grid_all_noise[:, 1],
+                s=6,
+                color="brown",
+                label="grid_noise",
+                alpha=0.9,
+                marker="+",
+            )
             ax.set_title("grid with noise")
 
         else:
             grid_all_noise = grid_all
-
-
-
 
         # INIT GAUSSIANS
         fig = plt.figure()
@@ -657,12 +710,28 @@ def main():
 
         show_nr_points = np.minimum(1000, obs_train.shape[0])
         ax.set_title("Continuous obs. + INIT gaussians")
-        ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
-        ax.scatter(obs_train[:show_nr_points, 0], obs_train[:show_nr_points, 1], s=6, color='red', label="cont. obs")
+        ax.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=4,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        ax.scatter(
+            obs_train[:show_nr_points, 0],
+            obs_train[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="cont. obs",
+        )
         # ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
         #            label="discr. obs", alpha=0.3)
 
-        for i, (mean, chol_param) in enumerate(zip(means1d_hat_init_2d, cholesky_L_params_init_2d)):
+        for i, (mean, chol_param) in enumerate(
+            zip(means1d_hat_init_2d, cholesky_L_params_init_2d)
+        ):
             Cholesky_L = torch.zeros((2, 2))
             Cholesky_L[0, 0] = chol_param[0]
             Cholesky_L[1, 1] = chol_param[1]
@@ -671,18 +740,42 @@ def main():
 
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
-            draw_ellipse(mean.detach().numpy(), cov_matrix.detach().numpy(), ax, alpha=0.4)
+            draw_ellipse(
+                mean.detach().cpu().numpy(),
+                cov_matrix.detach().cpu().numpy(),
+                ax,
+                alpha=0.4,
+            )
 
         # FITTED GAUSSIANS HMMLEARN to orig. cont obs.
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
         show_nr_points = np.minimum(1000, obs_train.shape[0])
-        ax.set_title("Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs" )
-        ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
-        ax.scatter(obs_train[:show_nr_points, 0], obs_train[:show_nr_points, 1], s=6, color='red', label="cont. obs")
+        ax.set_title("Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs")
+        ax.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=4,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        ax.scatter(
+            obs_train[:show_nr_points, 0],
+            obs_train[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="cont. obs",
+        )
 
-        for i, (mean, cov_matrix) in enumerate(zip(model_hmmlearn_gaussian_trained.means_,  model_hmmlearn_gaussian_trained.covars_)):
+        for i, (mean, cov_matrix) in enumerate(
+            zip(
+                model_hmmlearn_gaussian_trained.means_,
+                model_hmmlearn_gaussian_trained.covars_,
+            )
+        ):
             draw_ellipse(mean, cov_matrix, ax, alpha=0.4)
 
             print("i = ", i)
@@ -695,34 +788,69 @@ def main():
 
         show_nr_points = np.minimum(1000, obs_train.shape[0])
         ax.set_title("Continuous obs. + fitted gaussians HMMLEARN to DISCRETIZED  obs.")
-        ax.scatter(grid_all[:, 0], grid_all[:, 1], s=4, color='gray', label='grid', alpha=0.5, marker="+")
-        ax.scatter(obs_train[:show_nr_points, 0], obs_train[:show_nr_points, 1], s=6, color='red', label="cont. obs")
+        ax.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=4,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        ax.scatter(
+            obs_train[:show_nr_points, 0],
+            obs_train[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="cont. obs",
+        )
 
-        for i, (mean, cov_matrix) in enumerate(zip(model_hmmlearn_gaussian_grid_trained.means_,  model_hmmlearn_gaussian_grid_trained.covars_)):
+        for i, (mean, cov_matrix) in enumerate(
+            zip(
+                model_hmmlearn_gaussian_grid_trained.means_,
+                model_hmmlearn_gaussian_grid_trained.covars_,
+            )
+        ):
             draw_ellipse(mean, cov_matrix, ax, alpha=0.4)
 
             print("i = ", i)
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
-
         # FITTED GAUSSIANS TORCH
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-
-        show_nr_points = np.minimum(1000,obs_train.shape[0])
-        ax.set_title("Continuous obs. + fitted gaussians TORCH, loss = " + str(loss_type))
-        ax.scatter(grid_all[:,0], grid_all[:,1], s=14, color='gray', label='grid', alpha=0.5, marker="+")
-        ax.scatter(obs_train[:show_nr_points,0],obs_train[:show_nr_points,1] , s=6,  color='red', label="cont. obs")
+        show_nr_points = np.minimum(1000, obs_train.shape[0])
+        ax.set_title(
+            "Continuous obs. + fitted gaussians TORCH, loss = " + str(loss_type)
+        )
+        ax.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=14,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        ax.scatter(
+            obs_train[:show_nr_points, 0],
+            obs_train[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="cont. obs",
+        )
         # ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
         #             label="discr. obs", alpha=0.3)
         ax.legend()
 
-        #ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
+        # ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
         #            label="discr. obs", alpha=0.3)
 
-        for i, (mean, chol_param) in enumerate(zip(trained_means, trained_cholesky_L_params)):
+        for i, (mean, chol_param) in enumerate(
+            zip(trained_means, trained_cholesky_L_params)
+        ):
             Cholesky_L = torch.zeros((2, 2))
             Cholesky_L[0, 0] = chol_param[0]
             Cholesky_L[1, 1] = chol_param[1]
@@ -731,21 +859,20 @@ def main():
 
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
-            draw_ellipse(mean.detach().numpy(),cov_matrix.detach().numpy(),ax,alpha=0.4)
-
+            draw_ellipse(
+                mean.detach().cpu().numpy(),
+                cov_matrix.detach().cpu().numpy(),
+                ax,
+                alpha=0.4,
+            )
 
             print("i = ", i)
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
-
-
     plt.show()
     print("done")
     quit()
-
-
-
 
     #
     # H, bins = np.histogram(obs_train, bins=m)
@@ -1154,6 +1281,7 @@ def main():
     # if show_plots:
     #     plt.show()
     #
+
 
 if __name__ == "__main__":
     main()
