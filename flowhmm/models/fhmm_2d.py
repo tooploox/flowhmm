@@ -104,23 +104,23 @@ def compute_P_torch(
     noise_var=0.01,
     add_noise=False,
 ):
-
+    assert grid.device == means.device
+    device = grid.device
     L = means.shape[0]
 
     # old P = torch.zeros(len(grid), len(means)).to(grid.device)
 
-    P = torch.zeros(len(grid), L).to(grid.device)
+    P = torch.zeros(len(grid), L, device=device)
 
     if add_noise:  #:torch.normal(mean=torch.zeros(5), std=torch.ones(5)*0.1)
         grid = grid + torch.normal(
-            mean=torch.zeros((len(grid), 2)),
-            std=torch.ones((len(grid), 2)) * 0.1
-        ).to(grid.device)
+            mean=torch.zeros((len(grid), 2), device=device), std=torch.ones((len(grid), 2), device=device) * 0.1
+        )
     # grid = grid + torch.normal(0, 0.1, size=len(grid)).to(device)
 
     for i, (mean, chol_param) in enumerate(zip(means, cholesky_L_params)):
 
-        Cholesky_L = torch.zeros((2, 2), device=cholesky_L_params.device)
+        Cholesky_L = torch.zeros((2, 2), device=device)
 
         Cholesky_L[0, 0] = chol_param[0]
         Cholesky_L[1, 1] = chol_param[1]

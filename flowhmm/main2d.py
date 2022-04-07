@@ -241,14 +241,11 @@ def draw_ellipse(position, covariance, ax, alpha):
 
 def main():
     args = ParseArguments()
+    set_seed(args.seed)
     ic(args)
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
 
-    init_with_kmeans = bool(args.init_with_kmeans)
-    print("init_with_kmeans = ", init_with_kmeans)
-
-    set_seed(args.seed)
     example_config = load_example(args.example_yaml)
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
@@ -262,21 +259,12 @@ def main():
     noise_var = args.noise_var
     loss_type = args.loss_type
     n = example_config.nr_observations
-    print(
-        "AAAAAAA nr_epochs=",
-        nr_epochs,
-        ", nr_epochs_torch=",
-        nr_epochs_torch,
-        ", n=",
-        n,
-    )
-
     lrate = float(args.lrate)
 
     output_file = args.output_file
 
     # Debugging
-    ic(device, show_plots, nr_epochs, nr_epochs_torch, lrate)
+    ic(nr_epochs, nr_epochs_torch, n, device, show_plots, lrate)
 
     obs_flow = None
     obs_test_flow = None
@@ -383,6 +371,8 @@ def main():
         mu_orig = compute_stat_distr(A_orig)
         S_orig = torch.tensor(np.dot(np.diag(mu_orig), A_orig))
 
+        ic(A_orig, mu_orig, S_orig)
+
         # SIMULATE OBSERVATIONS:
         obs_train = simulate_observations_multivariate(
             n,
@@ -397,14 +387,12 @@ def main():
             distributions=example_config.hidden_states_distributions,
         )
 
-        # quit()
         x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
         x_max = np.max(obs_train[:, 0]) + 0.05 * np.abs(np.min(obs_train[:, 0]))
 
         y_min = np.min(obs_train[:, 1]) - 0.05 * np.abs(np.min(obs_train[:, 1]))
         y_max = np.max(obs_train[:, 1]) + 0.05 * np.abs(np.min(obs_train[:, 1]))
 
-        #
         grid_strategy = example_config.grid_strategy
         # # grid_strategy = "uniform"
         # # grid_strategy = "kmeans"
@@ -583,13 +571,7 @@ def main():
     )
 
     # Gauss TORCH
-    print(
-        "DDDDDDDDD init_with_kmeans =",
-        init_with_kmeans,
-        ", args.init_with_kmeans = ",
-        args.init_with_kmeans,
-    )
-    if init_with_kmeans:
+    if args.init_with_kmeans:
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
         means1d_hat_init_2d = torch.nn.Parameter(
