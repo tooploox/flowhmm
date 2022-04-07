@@ -79,7 +79,7 @@ def ParseArguments():
     )
     parser.add_argument(
         "--init_with_kmeans",
-        action="store_false",
+        action="store_true",
         help="Whether to init with kmeans' centers",
     )
     parser.add_argument(
@@ -589,11 +589,11 @@ def main():
         ", args.init_with_kmeans = ",
         args.init_with_kmeans,
     )
-    if init_with_kmeans == True:
+    if init_with_kmeans:
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
         means1d_hat_init_2d = torch.nn.Parameter(
-            torch.tensor(kmeans.cluster_centers_)
+            torch.tensor(kmeans.cluster_centers_).float()
         ).to(device)
         print("TTTTTTTTTTT")
 
@@ -603,7 +603,7 @@ def main():
         )  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
         tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
         tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
-        means1d_hat_init_2d = torch.nn.Parameter(tmp).to(device)
+        means1d_hat_init_2d = torch.nn.Parameter(tmp.float()).to(device)
         print("FFFFFFFFFFF")
 
     print("asdf")

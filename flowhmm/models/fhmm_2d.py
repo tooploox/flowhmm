@@ -113,8 +113,9 @@ def compute_P_torch(
 
     if add_noise:  #:torch.normal(mean=torch.zeros(5), std=torch.ones(5)*0.1)
         grid = grid + torch.normal(
-            mean=torch.zeros((len(grid), 2)), std=torch.ones((len(grid), 2)) * 0.1
-        )
+            mean=torch.zeros((len(grid), 2)),
+            std=torch.ones((len(grid), 2)) * 0.1
+        ).to(grid.device)
     # grid = grid + torch.normal(0, 0.1, size=len(grid)).to(device)
 
     for i, (mean, chol_param) in enumerate(zip(means, cholesky_L_params)):
