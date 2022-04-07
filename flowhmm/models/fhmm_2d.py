@@ -120,12 +120,7 @@ def compute_P_torch(
 
     for i, (mean, chol_param) in enumerate(zip(means, cholesky_L_params)):
 
-        Cholesky_L = torch.zeros((2, 2), device=device)
-
-        Cholesky_L[0, 0] = chol_param[0]
-        Cholesky_L[1, 1] = chol_param[1]
-        Cholesky_L[0, 1] = chol_param[2]
-        Cholesky_L[1, 0] = 0  # chol_param[2]
+        Cholesky_L = torch.tril(chol_param)
 
         cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
@@ -291,9 +286,7 @@ class HMM_NMF_multivariate(torch.nn.Module):
             cholesky_L_params_init_2d.clone().detach().requires_grad_(True)
         )
 
-        # self.covs1d_hat_un = torch.nn.Parameter(
-        #     covs1d_hat_un_init.clone().detach().requires_grad_(True)
-        # )
+        ic(self.Shat_un, self.means1d_hat, self.cholesky_L_params)
 
         self.m = m
         self.mm = mm
