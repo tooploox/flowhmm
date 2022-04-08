@@ -22,6 +22,7 @@ from models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
 from utils import set_seed, load_example
 
 
+
 def ParseArguments():
     NONLINEARITIES = ["tanh", "relu", "softplus", "elu", "swish", "square", "identity"]
     SOLVERS = [
@@ -402,6 +403,7 @@ def main():
     # hmmlearn GaussianHMM
     # L2 hidden states, each state is a mixture of n_mix components
 
+    # model1D_hmmlearn_gmmhmm_trained -- this will be with n_mix of mixtures
     model1D_hmmlearn_gmmhmm_trained = GMMHMM(
         n_components=L2, covariance_type="full", n_mix=n_mix
     )
@@ -409,6 +411,17 @@ def main():
     model1D_hmmlearn_gmmhmm_trained.fit(obs_train.reshape(-1, 1))
 
     logprob_hmmlearn_gmmhmm_trained = model1D_hmmlearn_gmmhmm_trained.score(
+        obs_test.reshape(-1, 1)
+    )
+
+    # separately we will make models with 2,5,10,15 mixtures, only to compute logprobs
+    n_mix_list = [1,2, 5, 10, 15]
+    model1D_hmmlearn_gmmhmm_trained_models =[GMMHMM(n_components=L2, covariance_type="full", n_mix=k)  for k in n_mix_list]
+    logprob_hmmlearn_gmmhmm_trained_models = np.zeros(len(n_mix_list))
+
+    for i in np.arange(len(n_mix_list)):
+        model1D_hmmlearn_gmmhmm_trained_models[i].fit(obs_train.reshape(-1, 1))
+        logprob_hmmlearn_gmmhmm_trained_models[i] = model1D_hmmlearn_gmmhmm_trained_models[i].score(
         obs_test.reshape(-1, 1)
     )
 
@@ -788,6 +801,7 @@ def main():
 
     log_prob_results = dict(
         hmmlearn=logprob_hmmlearn_gaussian_trained,
+        gmmhmm = logprob_hmmlearn_gmmhmm_trained,
         cont=logprob_torch_trained_continuous1.item(),
         cflow=logprob_flow_trained_continuous.item(),
     )
@@ -813,12 +827,15 @@ def main():
     )
     print("Done.")
     print(log_prob_results)
-    print(
+    print("Noralized logprobs: \n",
         {
             "FlowHMM": log_prob_results["cflow"] / n,
             "H-Gauss (hmmlearn)": log_prob_results["hmmlearn"] / n,
+            "GMM-HMM (hmmlearn, n_mix="+str(n_mix)+")": log_prob_results["gmmhmm"] / n,
         }
     )
+    for nr,i in enumerate(n_mix_list):
+        print("GMM-HMM (hmmlearn), n_mix = ", i, " :", logprob_hmmlearn_gmmhmm_trained_models[nr]/n)
 
     if output_file is not None:
         data_to_save = {

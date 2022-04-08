@@ -23,6 +23,7 @@ from utils import set_seed, load_example
 # sample usage
 # python -i flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 200  --show_plots=yes
 # python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 5000 --seed 139
+# python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --seed 4 --loss_type old  --nr_epochs_torch 3000 --init_with_kmeans True
 
 
 def ParseArguments():
@@ -377,11 +378,34 @@ def main():
             distributions=example_config.hidden_states_distributions,
         )
 
-        x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
-        x_max = np.max(obs_train[:, 0]) + 0.05 * np.abs(np.min(obs_train[:, 0]))
+        # old:
+        # x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
+        # x_max = np.max(obs_train[:, 0]) + 0.05 * np.abs(np.min(obs_train[:, 0]))
+        #
+        # y_min = np.min(obs_train[:, 1]) - 0.05 * np.abs(np.min(obs_train[:, 1]))
+        # y_max = np.max(obs_train[:, 1]) + 0.05 * np.abs(np.min(obs_train[:, 1]))
 
-        y_min = np.min(obs_train[:, 1]) - 0.05 * np.abs(np.min(obs_train[:, 1]))
-        y_max = np.max(obs_train[:, 1]) + 0.05 * np.abs(np.min(obs_train[:, 1]))
+        # new:
+        x_min = np.min(obs_train[:, 0])
+        x_max = np.max(obs_train[:, 0])
+
+        y_min = np.min(obs_train[:, 1])
+        y_max = np.max(obs_train[:, 1])
+
+        x_min2 = x_min - np.var(obs_train[:, 0])
+        x_max2 = x_max + np.var(obs_train[:, 0])
+        y_min2 = y_min - np.var(obs_train[:, 1])
+        y_max2 = y_max + np.var(obs_train[:, 1])
+
+        x_min3 = x_min + 0.2 * (x_max - x_min)
+        x_max3 = x_max - 0.2 * (x_max - x_min)
+
+        y_min3 = y_min + 0.2 * (y_max - x_min)
+        y_max3 = y_max - 0.2 * (y_max - x_min)
+
+        ic(x_min,x_max,y_min,y_max)
+        ic(x_min2,x_max2,y_min2,y_max2)
+        ic(x_min3,x_max3,y_min3,y_max3)
 
         grid_strategy = example_config.grid_strategy
         # # grid_strategy = "uniform"
@@ -389,8 +413,8 @@ def main():
         # # grid_strategy = "mixed"
         #
         if grid_strategy == "uniform":
-            grid_x = np.linspace(x_min, x_max, m)
-            grid_y = np.linspace(y_min, y_max, m)
+            grid_x = np.linspace(x_min2, x_max2, m)
+            grid_y = np.linspace(y_min2, y_max2, m)
             # cartesian product
             grid_all = np.transpose(
                 [np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))]
@@ -405,16 +429,37 @@ def main():
             grid_all = kmeans.cluster_centers_
 
         elif grid_strategy == "kmeans2":
-            mm = example_config.grid_size_all
+          #  mm = example_config.grid_size_all
             # tutaj robimy tak, ze osobno na x, osobno na y
 
-            kmeans_x = KMeans(n_clusters=m)
-            kmeans_x.fit(obs_train[:, 0].reshape(-1, 1))
-            grid_x = kmeans_x.cluster_centers_.reshape(-1)
 
-            kmeans_y = KMeans(n_clusters=m)
+            m_k=m
+            # m_k = int(m*0.8)
+            # m_extra_left = int((m-m_k)/2)
+            # m_extra_right = m-m_k-m_extra_left
+
+            kmeans_x = KMeans(n_clusters=m_k)
+            kmeans_x.fit(obs_train[:, 0].reshape(-1, 1))
+            grid_x = np.sort(kmeans_x.cluster_centers_.reshape(-1))
+
+            # mean_x_dist = np.mean(np.diff(grid_x))
+            # extra_x_grid_right = np.arange(np.max(grid_x), np.max(grid_x)+m_extra_right*mean_x_dist, mean_x_dist)
+            # grid_x = np.hstack([grid_x,extra_x_grid_right])
+            #
+            # extra_x_grid_left =np.arange(np.min(grid_x)-m_extra_left*mean_x_dist,np.min(grid_x),mean_x_dist)
+            # grid_x = np.hstack([extra_x_grid_left,grid_x])
+            #
+
+            kmeans_y = KMeans(n_clusters=m_k)
             kmeans_y.fit(obs_train[:, 1].reshape(-1, 1))
-            grid_y = kmeans_y.cluster_centers_.reshape(-1)
+            grid_y = np.sort(kmeans_y.cluster_centers_.reshape(-1))
+
+            # mean_y_dist = np.mean(np.diff(grid_y))
+            # extra_y_grid = np.arange(np.max(grid_y), np.max(grid_y) + m_extra_right * mean_y_dist, mean_y_dist)
+            # grid_y = np.hstack([grid_y, extra_y_grid])
+            #
+            # extra_y_grid_left = np.arange(np.min(grid_y) - m_extra_left * mean_y_dist, np.min(grid_y), mean_y_dist)
+            # grid_y = np.hstack([extra_y_grid_left, grid_y])
 
             grid_all = np.transpose(
                 [np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))]
@@ -424,6 +469,38 @@ def main():
             # grid_all[:,1]=grid_y
             mm = grid_all.shape[0]
             print("test")
+        elif grid_strategy == "mixed":
+
+            m_half_uniform = int(m/2)
+            m_half_kmeans =  m-m_half_uniform
+
+            grid_uniform_x = np.linspace(x_min2, x_max2, m_half_uniform)
+            grid_uniform_y = np.linspace(y_min2, y_max2, m_half_uniform)
+
+            kmeans_x = KMeans(n_clusters=m_half_kmeans)
+            kmeans_x.fit(obs_train[:, 0].reshape(-1, 1))
+            grid_kmeans_x = np.sort(kmeans_x.cluster_centers_.reshape(-1))
+
+            kmeans_y = KMeans(n_clusters=m_half_kmeans)
+            kmeans_y.fit(obs_train[:, 1].reshape(-1, 1))
+            grid_kmeans_y = np.sort(kmeans_y.cluster_centers_.reshape(-1))
+
+            grid_x = np.sort(np.hstack([grid_uniform_x, grid_kmeans_x]))
+            grid_y = np.sort(np.hstack([grid_uniform_y, grid_kmeans_y]))
+
+            grid_all = np.transpose(
+                [np.tile(grid_x, len(grid_y)), np.repeat(grid_y, len(grid_x))]
+            )
+            # grid_all=np.zeros((mm,2))
+            # grid_all[:,0]=grid_x
+            # grid_all[:,1]=grid_y
+            mm = grid_all.shape[0]
+
+
+
+            # half from kmeans, half from uniform
+
+
         # elif grid_strategy == "mixed":
         #     kmeans = KMeans(n_clusters=int(np.floor(m / 2)))
         #     kmeans.fit(obs_train.reshape(-1, 1))
@@ -489,7 +566,7 @@ def main():
         plt.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
-            s=4,
+            s=14,
             color="gray",
             label="grid",
             alpha=0.5,
@@ -559,6 +636,8 @@ def main():
     )
 
     # Gauss TORCH
+    print("args.init_with_kmeans = ",args.init_with_kmeans )
+    #quit()
     if args.init_with_kmeans:
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
@@ -569,8 +648,8 @@ def main():
         tmp = torch.rand(
             (L, dim), device=device
         )  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
-        tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
-        tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
+        tmp[:, 0] = tmp[:, 0] * (x_max3 - x_min3) + x_min3
+        tmp[:, 1] = tmp[:, 1] * (y_max3 - y_min3) + y_min3
         means1d_hat_init_2d = tmp.float()
         ic("Initialization without k-means", means1d_hat_init_2d)
 
@@ -591,7 +670,8 @@ def main():
 
     # # (2 * torch.rand(L, 3, device=device) - 1) / 10
     cholesky_L_params_init_2d = torch.stack([
-        torch.tril((2*torch.rand(dim, dim, device=device)-1)/10) for _ in range(L)
+        #torch.tril((2*torch.rand(dim, dim, device=device)+1)/2) for _ in range(L)
+        torch.tril( torch.ones(dim, dim, device=device)/10) for _ in range(L)
     ])
 
     ic(cholesky_L_params_init_2d)
@@ -685,7 +765,7 @@ def main():
         ax.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
-            s=4,
+            s=14,
             color="gray",
             label="grid",
             alpha=0.5,
@@ -723,7 +803,7 @@ def main():
         ax.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
-            s=4,
+            s=14,
             color="gray",
             label="grid",
             alpha=0.5,
@@ -758,7 +838,7 @@ def main():
         ax.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
-            s=4,
+            s=14,
             color="gray",
             label="grid",
             alpha=0.5,
