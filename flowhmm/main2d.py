@@ -241,18 +241,17 @@ def draw_ellipse(position, covariance, ax, alpha):
 
 def main():
     args = ParseArguments()
+    set_seed(args.seed)
     ic(args)
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
 
-    init_with_kmeans = bool(args.init_with_kmeans)
-    print("init_with_kmeans = ", init_with_kmeans)
-
-    set_seed(args.seed)
     example_config = load_example(args.example_yaml)
+
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
+    polyaxon.tracking.log_inputs(yaml=example_config)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     show_plots = args.show_plots
@@ -262,37 +261,16 @@ def main():
     noise_var = args.noise_var
     loss_type = args.loss_type
     n = example_config.nr_observations
-    print(
-        "AAAAAAA nr_epochs=",
-        nr_epochs,
-        ", nr_epochs_torch=",
-        nr_epochs_torch,
-        ", n=",
-        n,
-    )
-
     lrate = float(args.lrate)
 
-    output_file = args.output_file
-
     # Debugging
-    ic(device, show_plots, nr_epochs, nr_epochs_torch, lrate)
+    ic(nr_epochs, nr_epochs_torch, n, device, show_plots, lrate)
 
-    obs_flow = None
-    obs_test_flow = None
-    obs_test_all = None
-    obs_train_nr_of_seq = 1
-
-    # if(show_plots):
-    #     show_distrib(B_orig, B_orig, P1_text="B_orig", P2_text="B_orig")
-
-    generated_bool = False
-    print("A")
-    DATA_TYPE = example_config.data_type.upper()
-    print("B")
-    polyaxon.tracking.log_inputs(yaml=example_config)
     if example_config.dataset:
         polyaxon.tracking.log_inputs(**example_config.dataset)
+
+    obs_train, obs_test, grid_strategy = None, None, None
+
     # REAL DATASETS
     if example_config.data_type == "real":
         dataset = example_config.dataset
@@ -383,6 +361,8 @@ def main():
         mu_orig = compute_stat_distr(A_orig)
         S_orig = torch.tensor(np.dot(np.diag(mu_orig), A_orig))
 
+        ic(A_orig, mu_orig, S_orig)
+
         # SIMULATE OBSERVATIONS:
         obs_train = simulate_observations_multivariate(
             n,
@@ -397,14 +377,12 @@ def main():
             distributions=example_config.hidden_states_distributions,
         )
 
-        # quit()
         x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
         x_max = np.max(obs_train[:, 0]) + 0.05 * np.abs(np.min(obs_train[:, 0]))
 
         y_min = np.min(obs_train[:, 1]) - 0.05 * np.abs(np.min(obs_train[:, 1]))
         y_max = np.max(obs_train[:, 1]) + 0.05 * np.abs(np.min(obs_train[:, 1]))
 
-        #
         grid_strategy = example_config.grid_strategy
         # # grid_strategy = "uniform"
         # # grid_strategy = "kmeans"
@@ -562,19 +540,17 @@ def main():
 
     # RECZNIE rozmiary, do zmiany
 
-    L2 = L
-
     # Gauss HMM
     # hmmlearn GaussianHMM
     model_hmmlearn_gaussian_trained = GaussianHMM(
-        n_components=L2, covariance_type="full"
+        n_components=L, covariance_type="full"
     )
     model_hmmlearn_gaussian_trained.fit(obs_train)
 
     logprob_hmmlearn_gaussian_trained = model_hmmlearn_gaussian_trained.score(obs_test)
 
     model_hmmlearn_gaussian_grid_trained = GaussianHMM(
-        n_components=L2, covariance_type="full"
+        n_components=L, covariance_type="full"
     )
     model_hmmlearn_gaussian_grid_trained.fit(obs_train_grid)
 
@@ -583,40 +559,28 @@ def main():
     )
 
     # Gauss TORCH
-    print(
-        "DDDDDDDDD init_with_kmeans =",
-        init_with_kmeans,
-        ", args.init_with_kmeans = ",
-        args.init_with_kmeans,
-    )
-    if init_with_kmeans:
+    if args.init_with_kmeans:
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
-        means1d_hat_init_2d = torch.nn.Parameter(
-            torch.tensor(kmeans.cluster_centers_).float()
-        ).to(device)
-        print("TTTTTTTTTTT")
+        means1d_hat_init_2d = torch.tensor(kmeans.cluster_centers_, device=device).float()
+        ic("Initialization with k-means", means1d_hat_init_2d)
 
     else:
         tmp = torch.rand(
-            (L, dim)
+            (L, dim), device=device
         )  # dla kazdego ukrytego stanu dim-wymiarowy punkt = srednia
         tmp[:, 0] = tmp[:, 0] * (x_max - x_min) + x_min
         tmp[:, 1] = tmp[:, 1] * (y_max - y_min) + y_min
-        means1d_hat_init_2d = torch.nn.Parameter(tmp.float()).to(device)
-        print("FFFFFFFFFFF")
-
-    print("asdf")
+        means1d_hat_init_2d = tmp.float()
+        ic("Initialization without k-means", means1d_hat_init_2d)
 
     # np.
     # tensor([[3.3121, 2.7315],
     # [3.0476, 2.1365],
     # [3.0364, 2.5332]], requires_grad=True)
 
-    print("means1d_hat_init=", means1d_hat_init_2d)
-
     # to tak jak bylo w 1d
-    Shat_un_init = torch.nn.Parameter(torch.randn(L2, L2)).to(device)
+    Shat_un_init = torch.nn.Parameter(torch.randn(L, L, device=device))
     # un = unnormalized
     # covs1d_hat_un_init = torch.nn.Parameter(torch.randn(L2) / 2).to(device)
 
@@ -625,14 +589,22 @@ def main():
     # z czego potem robimy macierz L = [[c00,0],[c01,c11]] = dolnotrojkatna
     # a potem covariance_matrix = L*L^T (rozklad Choleskyego)
 
-    cholesky_L_params_init_2d = torch.nn.Parameter((2 * torch.rand(L2, 3) - 1) / 10).to(
-        device
-    )
+    # # (2 * torch.rand(L, 3, device=device) - 1) / 10
+    cholesky_L_params_init_2d = torch.stack([
+        torch.tril((2*torch.rand(dim, dim, device=device)-1)/10) for _ in range(L)
+    ])
+
     ic(cholesky_L_params_init_2d)
-    # na przyklad:
-    #  tensor([[ 0.4633, -0.1349,  0.1217],
-    #     [-0.1054, -0.0575,  0.0717],
-    #     [-0.1036, -0.2325, -0.0115]], requires_grad=True)
+    # Na przykład
+    # cholesky_L_params_init_2d:
+    # tensor([[[-0.0505, 0.0000],
+    #          [0.0156, 0.0877]],
+    #
+    #         [[0.0515, 0.0000],
+    #          [0.0735, -0.0958]],
+    #
+    #         [[-0.0504, 0.0000],
+    #          [0.0686, -0.0480]]], device='cuda:0')
 
     model_hmm_nmf_torch_multivariate = HMM_NMF_multivariate(
         Shat_un_init=Shat_un_init,
@@ -732,12 +704,7 @@ def main():
         for i, (mean, chol_param) in enumerate(
             zip(means1d_hat_init_2d, cholesky_L_params_init_2d)
         ):
-            Cholesky_L = torch.zeros((2, 2))
-            Cholesky_L[0, 0] = chol_param[0]
-            Cholesky_L[1, 1] = chol_param[1]
-            Cholesky_L[0, 1] = chol_param[2]
-            Cholesky_L[1, 0] = chol_param[2]
-
+            Cholesky_L = chol_param
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
             draw_ellipse(
@@ -851,12 +818,7 @@ def main():
         for i, (mean, chol_param) in enumerate(
             zip(trained_means, trained_cholesky_L_params)
         ):
-            Cholesky_L = torch.zeros((2, 2))
-            Cholesky_L[0, 0] = chol_param[0]
-            Cholesky_L[1, 1] = chol_param[1]
-            Cholesky_L[0, 1] = chol_param[2]
-            Cholesky_L[1, 0] = chol_param[2]
-
+            Cholesky_L = chol_param
             cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
             draw_ellipse(
