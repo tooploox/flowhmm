@@ -16,7 +16,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
 
 from models.fhmm import compute_stat_distr
-from models.fhmm_2d import HMM_NMF_multivariate
+from models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
 from utils import set_seed, load_example
 
 
@@ -58,7 +58,7 @@ def ParseArguments():
     )
     parser.add_argument(
         "--show_plots",
-        action="store_false",
+        action="store_true",
         help="Whether to show plots after the training.",
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ def ParseArguments():
     parser.add_argument("--residual", action="store_true")
     parser.add_argument("--rademacher", action="store_true")
     parser.add_argument("--spectral_norm", action="store_true")
-    parser.add_argument("--batch_norm", action="store_false")
+    parser.add_argument("--batch_norm", action="store_true")
     parser.add_argument("--bn_lag", type=float, default=0)
     parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
@@ -721,6 +721,33 @@ def main():
 
     print("trained_means =", trained_means)
 
+    Shat_un_init = torch.nn.Parameter(torch.ones(L, L)).to(device)
+
+    # if args.pretrain_flow:
+    #     model_hmm_nmf_torch_flow_multivariate = HMM_NMF_FLOW_multivariate(
+    #         Shat_un_init=model_hmm_nmf_torch_multivariate.Shat_un,
+    #         m=m,
+    #         mm=mm,
+    #         params=args,
+    #         dim=grid_all.shape[1],
+    #         init_params=(
+    #             model_hmm_nmf_torch_multivariate.get_means1d(),
+    #             model_hmm_nmf_torch_multivariate.get_covs1d(),
+    #         ),
+    #     )
+    # else:
+    model_hmm_nmf_torch_flow_multivariate = HMM_NMF_FLOW_multivariate(
+        Shat_un_init=Shat_un_init, m=m, mm=mm, dim=grid_all.shape[1], params=args
+    )
+    model_hmm_nmf_torch_flow_multivariate.fit(
+        torch.Tensor(grid_all).to(device),
+        obs_train_grid_labels.reshape(-1),
+        lr=lrate,
+        nr_epochs=nr_epochs,
+        display_info_every_step=1,
+    )
+    model_hmm_nmf_torch_flow_multivariate.eval()
+
     if show_plots:
         if add_noise:
             print("Add noise var: ", noise_var)
@@ -911,6 +938,49 @@ def main():
             print("i = ", i)
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
+
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        show_nr_points = np.minimum(1000, obs_train.shape[0])
+        ax.set_title(
+            "Continuous obs. + fitted Flow, loss = " + str(loss_type)
+        )
+        ax.scatter(
+            grid_all[:, 0],
+            grid_all[:, 1],
+            s=14,
+            color="gray",
+            label="grid",
+            alpha=0.5,
+            marker="+",
+        )
+        ax.scatter(
+            obs_train[:show_nr_points, 0],
+            obs_train[:show_nr_points, 1],
+            s=6,
+            color="red",
+            label="cont. obs",
+        )
+        # ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
+        #             label="discr. obs", alpha=0.3)
+        ax.legend()
+
+        # ax.scatter(obs_train_grid[:show_nr_points, 0], obs_train_grid[:show_nr_points, 1], s=6, color='green',
+        #            label="discr. obs", alpha=0.3)
+
+        samples = model_hmm_nmf_torch_flow_multivariate.sample_points(500)
+        colors = ["green", "blue", "black"]
+        for i, sample in enumerate(samples):
+            sample = sample.cpu().detach().numpy()
+            ax.scatter(
+                sample[:, 0],
+                sample[:, 1],
+                s=6,
+                color=colors[i],
+                label="flow number: " + str(i),
+            )
 
     plt.show()
     print("done")

@@ -76,14 +76,19 @@ def compute_stat_distr(A):
     return stat_distr
 
 
-def nnmf_hmm_discrete(observations, m):
-    Q = np.zeros((m, m))  # + 1
+def nnmf_hmm_discrete(observations, m, add_prior=False):
 
+    if add_prior:
+        Q = np.zeros((m, m)) + 1
+    else:
+        Q = np.zeros((m, m))
     for i in range(1, len(observations)):
         Q[observations[i - 1], observations[i]] += 1
 
-    Q /= len(observations)  # - 1 + m * m # ??
-
+    if add_prior:
+        Q /= len(observations) - 1 + m * m # ??
+    else:
+        Q /= len(observations)
     return Q
 
 
@@ -443,7 +448,7 @@ class HMM_NMF_multivariate(torch.nn.Module):
         noise_var=0.01,
     ):
 
-        Q_empir = nnmf_hmm_discrete(observation_labels, self.mm)
+        Q_empir = nnmf_hmm_discrete(observation_labels, self.mm, add_prior=False)
         Q_empir_torch = torch.from_numpy(Q_empir).to(self.device)
 
         # print("Q_empir = ", Q_empir)
@@ -493,6 +498,353 @@ class HMM_NMF_multivariate(torch.nn.Module):
                 )
 
         return True
+
+
+class HMM_NMF_FLOW_multivariate(torch.nn.Module):
+    """
+    Hidden Markov Model -- NMF --   discrete...
+    """
+    def __init__(self, Shat_un_init, m, mm, params, dim=1, init_params=None):
+        super(HMM_NMF_FLOW_multivariate, self).__init__()
+
+        self.L = Shat_un_init.shape[0]  # nr of hidden states
+
+        self.Shat_un = torch.nn.Parameter(
+            Shat_un_init.clone().detach(), requires_grad=True
+        )
+        self.m = m
+        self.mm = mm
+        self.add_noise = params.add_noise
+        self.noise_var = params.noise_var
+        self.device = self.Shat_un.device
+        self.init_params = init_params
+        self.loss_type = params.loss_type
+        self.dim = dim
+        cnfs = []
+        for k in range(self.L):
+            cnfs.append(build_model_tabular(params, dim).to(self.device))
+        self.cnfs = ListModule(*cnfs)
+        if self.init_params is not None:
+            self.pretrain_flow()
+
+    def get_S(self):
+        Shat = torch.exp(self.Shat_un)
+        return Shat / torch.sum(Shat)
+
+    def get_A(self):
+        S = self.get_S()
+        A = S.cpu().detach().numpy()
+        A = A / np.sum(A, axis=1).reshape(-1, 1)
+        return A
+
+    def show_params(self):
+        ic("Param S:\t", self.get_S())
+
+    def get_mu(self):
+        evals, evecs = np.linalg.eig(self.get_A().T)
+        evec1 = evecs[:, np.isclose(evals, 1)]
+        mu = evec1 / evec1.sum()
+        mu = mu.real
+        mu = mu.reshape(-1)
+        return mu
+
+    def compute_P_torch(self, grid: torch.Tensor, add_noise=False, normalize=True):
+        P = torch.zeros(len(grid), self.L).to(grid.device)
+        grid = grid.float()
+        if add_noise:
+            grid = grid + torch.normal(0, self.noise_var, size=grid.size()).to(
+                self.device
+            )
+        for i in range(self.L):
+            y, delta_log_py = self.cnfs[i](
+                grid, torch.zeros(grid.size(0), 1).to(grid)
+            )
+            log_py = standard_normal_logprob(y).sum(1)
+            delta_log_py = delta_log_py.sum(1)
+            log_px = log_py - delta_log_py
+            P[:, i] = log_px
+
+        P = torch.exp(P)
+        if normalize:
+            P = torch.nn.functional.normalize(P, p=1, dim=0)
+        return P
+
+    def score(self, observations):
+        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY
+        model1D_hmmlearn_torch_multin_trained = MultinomialHMM(
+            n_components=self.L, random_state=42
+        )
+        model1D_hmmlearn_torch_multin_trained.fit(np.arange(self.m).reshape(-1, 1))
+
+        model1D_hmmlearn_torch_multin_trained.startprob_ = (
+            self.get_mu().reshape(-1).astype(float)
+        )
+        model1D_hmmlearn_torch_multin_trained.transmat_ = self.get_A().astype(float)
+
+        P = self.compute_P_torch(torch.arange(self.m).to(self.device))
+
+        model1D_hmmlearn_torch_multin_trained.emissionprob_ = np.array(
+            P.cpu().detach().numpy().T
+        ).astype(float)
+
+        P = P + 1
+        P[:, 0] = P[:, 0] / torch.sum(P[:, 0])
+        P[:, 1] = P[:, 1] / torch.sum(P[:, 1])
+        P[:, 2] = P[:, 2] / torch.sum(P[:, 2])
+
+        print(" in score: obs.shape = ", observations.shape)
+        if len(observations.shape) == 3:
+            score = 0
+            for k in range(observations.shape[0]):
+                score = score + model1D_hmmlearn_torch_multin_trained.score(
+                    observations[k]
+                )
+            return score
+        else:
+            return model1D_hmmlearn_torch_multin_trained.score(observations)
+
+    def transition_model(self, log_alpha):
+        A = self.get_S() / torch.sum(self.get_S(), dim=1).unsqueeze(1)
+        log_transition_matrix = torch.log(A).transpose(1, 0)
+
+        # Matrix multiplication in the log domain
+        out = self.log_domain_matmul(
+            log_transition_matrix, log_alpha.view(-1, 1)
+        ).transpose(0, 1)
+        return out
+
+    def log_domain_matmul(self, log_A, log_B):
+        """
+        log_A : m x n
+        log_B : n x p
+        output : m x p matrix
+
+        Normally, a matrix multiplication
+        computes out_{i,j} = sum_k A_{i,k} x B_{k,j}
+
+        A log domain matrix multiplication
+        computes out_{i,j} = logsumexp_k log_A_{i,k} + log_B_{k,j}
+        """
+        m = log_A.shape[0]
+        n = log_A.shape[1]
+        p = log_B.shape[1]
+
+        # log_A_expanded = torch.stack([log_A] * p, dim=2)
+        # log_B_expanded = torch.stack([log_B] * m, dim=0)
+        # fix for PyTorch > 1.5 by egaznep on Github:
+        log_A_expanded = torch.reshape(log_A, (m, n, 1))
+        log_B_expanded = torch.reshape(log_B, (1, n, p))
+
+        elementwise_sum = log_A_expanded + log_B_expanded
+        out = torch.logsumexp(elementwise_sum, dim=1)
+
+        return out
+
+    def continuous_score(self, observations):
+        log_probs = []
+        x_all = observations.squeeze()
+        log_alpha = torch.zeros(x_all.shape[0], self.L).to(self.device)
+        log_state_priors = torch.nn.functional.log_softmax(
+            torch.tensor(self.get_mu()).to(self.device), dim=0
+        )
+        for k in range(self.L):
+            x_tensor = torch.tensor(x_all).float().to(self.device)
+            y, delta_log_py = self.cnfs[k](
+                x_tensor, torch.zeros(x_all.shape[0], 1).to(self.device)
+            )
+            log_py = standard_normal_logprob(y).sum(1)
+            delta_log_py = delta_log_py.sum(1)
+            log_px = log_py - delta_log_py
+            log_probs.append(log_px)
+        emt = torch.stack([log_prob for log_prob in log_probs]).T
+        log_alpha[0] = emt[0] + log_state_priors
+        for t, x_t in enumerate(x_all[1:], 1):
+            # transition_model bierze alphy z poprzedniego kroku i tam w srodku uzywa A
+            log_alpha[t] = emt[t] + self.transition_model(log_alpha[t - 1])
+
+        # Select the sum for the final timestep (each x may have different length).
+        log_sums = log_alpha.logsumexp(dim=1)
+
+        return log_sums[-1].detach().cpu().numpy()
+
+    def compute_Q_torch(self, grid: torch.Tensor, Shat: torch.Tensor, add_noise=False):
+        # P = torch.exp(compute_P_torch(grid, means, covs))
+        P = self.compute_P_torch(grid, add_noise=add_noise)
+        return P.matmul(Shat.matmul(P.T))
+
+    def fit(
+        self,
+        grid,
+        observation_labels,
+        nr_epochs=5000,
+        lr=0.1,
+        display_info_every_step=50,
+        checkpoint_path=None,
+    ):
+
+        # print("NR EPOCHS = ", nr_epochs)
+        # print("lr =  ", lr)
+        if len(grid.shape) == 3:
+            Q_empir = []
+            for k in range(grid.shape[0]):
+                Q_empir.append(
+                    np.expand_dims(
+                        nnmf_hmm_discrete(observation_labels[k], self.mm, add_prior=True), axis=0
+                    )
+                )
+                # if self.add_noise:
+                #     Q_empir[k] = Q_empir[k] + np.random.normal(0.0, 0.001, Q_empir[k].shape)
+                #     Q_empir[k] = Q_empir[k] - np.min(Q_empir[k])
+                #     Q_empir[k] = Q_empir[k]/np.sum(Q_empir[k])
+            Q_empir = np.concatenate(Q_empir)
+        else:
+            Q_empir = nnmf_hmm_discrete(observation_labels, self.mm, add_prior=True)
+        Q_empir_torch = torch.from_numpy(Q_empir).to(self.device)
+
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=0.0001)
+        best_loss = np.inf
+        init_epoch = 0
+        loss_mse = torch.nn.MSELoss()
+        loss_KLDiv = torch.nn.KLDivLoss()
+        if checkpoint_path and os.path.isfile(checkpoint_path):
+            print(f"Restoring model from checkpoint {checkpoint_path}")
+            checkpoint = torch.load(checkpoint_path)
+            self.load_state_dict(checkpoint["model_state_dict"])
+            if "optimizer_state_dict" not in checkpoint.keys():
+                print("Warning: checkpoint model has no state for optimizer.")
+            else:
+                optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            init_epoch = checkpoint["epoch"]
+            best_loss = checkpoint["loss"]
+            print(f"Restored after epoch={init_epoch}, loss={best_loss:.6f}")
+            init_epoch += 1
+
+        for it in range(init_epoch, nr_epochs):
+            optimizer.zero_grad()
+            Shat = self.get_S()
+            Q_torch = self.compute_Q_torch(grid, Shat, self.add_noise)
+            if len(grid.shape) == 3:
+                loss = torch.norm(
+                    Q_empir_torch - Q_torch.unsqueeze(0).repeat(grid.shape[0], 1, 1),
+                    dim=(1, 2),
+                )
+                loss = loss.mean()
+            else:
+                # loss = torch.norm(Q_torch - Q_empir_torch).pow(2.0)
+
+                if self.loss_type == "old":
+                    loss = loss_mse(
+                        torch.log(0.001 + Q_torch),
+                        torch.log(0.001 + Q_empir_torch.float()),
+                    )
+                elif self.loss_type == "kld":
+                    loss = torch.sum(
+                        Q_torch
+                        * (
+                            torch.log(Q_torch + 0.0001)
+                            - torch.log(Q_empir_torch.float())
+                        )
+                    )
+                else:
+                    loss = None
+
+                # v1:
+            # loss = loss_mse(torch.log(0.001 + Q_torch), torch.log(0.001 + Q_empir_torch.float()))
+
+            # v3:
+            # loss = loss_KLDiv( Q_empir_torch.float(),  Q_torch)
+            # loss = loss_mse(self.compute_P_torch(grid) + self.Shat_un, torch.log(0.001 + Q_empir_torch.float()))
+            # loss=loss_mse(Q_empir_torch.float()*torch.log(0.001+Q_empir_torch.float()),Q_empir_torch.float()*Q_torch)
+            # loss = loss_mse(Q_torch, Q_empir_torch.float())
+            loss.backward(retain_graph=True)
+            optimizer.step()
+            loss_numpy = loss.cpu().detach().numpy()
+            if it < 50 or np.mod(it, display_info_every_step) == 0:
+                print(
+                    "Epoch = ",
+                    it,
+                    "/",
+                    nr_epochs,
+                    ",\t loss: ",
+                    np.round(loss_numpy, 6),
+                )
+                polyaxon.tracking.log_metric("train/loss_flow", loss_numpy, step=it)
+            if checkpoint_path and loss_numpy < best_loss:
+                print(
+                    f"Epoch: {it} loss ({loss_numpy:.6f}) is better than {best_loss:.6f}. Saving best loss to file {checkpoint_path}"
+                )
+                best_loss = loss_numpy
+                self.save_weights(
+                    checkpoint_path=checkpoint_path,
+                    epoch=it,
+                    loss=loss_numpy,
+                    optimizer=optimizer,
+                )
+
+        return True
+
+    def load_weights(self, checkpoint_path) -> Tuple[int, float]:
+        """
+        Load the weights from the checkpoint path.
+        @type checkpoint_path: str
+        @return tuple with two numbers: epoch, loss -- epoch and loss value from the checkpointed model
+        """
+        if os.path.isfile(checkpoint_path):
+            print(f"Loading model weights from checkpoint {checkpoint_path}")
+            checkpoint = torch.load(checkpoint_path)
+            self.load_state_dict(checkpoint["model_state_dict"])
+            print(
+                f"Loaded weights from checkpoint with epoch={checkpoint['epoch']}, loss={checkpoint['loss']}"
+            )
+            return checkpoint["epoch"], checkpoint["loss"]
+
+    def save_weights(self, checkpoint_path: str, epoch=None, loss=None, optimizer=None):
+        print(f"Saving model weights to the checkpoint file {checkpoint_path}.")
+        data = {"epoch": epoch, "model_state_dict": self.state_dict(), "loss": loss}
+        if optimizer is not None:
+            data.update({"optimizer_state_dict": optimizer.state_dict()})
+
+        torch.save(data, checkpoint_path)
+
+    def sample_points(self, n_per_state=1000):
+        generated_points = []
+        for l in range(self.L):
+            z_sampled = torch.normal(0, 1, size=(n_per_state, self.dim)).to(self.device)
+            generated_points.append(self.cnfs[l](z_sampled, None, reverse=True))
+        return generated_points
+
+    def pretrain_flow(self):
+        means, vars = self.init_params
+        nr_epochs = 50
+
+        for i in range(self.L):
+            mu = torch.Tensor([means[i]]).float().to(self.device).squeeze()
+            var = torch.Tensor([vars[i]]).float().to(self.device).squeeze()
+            print("Pretraining flow: ", i)
+            optimizer = torch.optim.Adam(
+                self.cnfs[i].parameters(), lr=0.001, weight_decay=0.00001
+            )
+            for k in range(nr_epochs):
+                optimizer.zero_grad()
+                grid = torch.normal(mu, torch.sqrt(var), size=(10000,)).to(self.device)
+                y, delta_log_py = self.cnfs[i](
+                    grid.unsqueeze(1), torch.zeros(grid.size(0), 1).to(grid)
+                )
+                log_py = standard_normal_logprob(y).sum(1)
+                delta_log_py = delta_log_py.sum(1)
+                log_px = log_py - delta_log_py
+                log_px = -log_px.mean()
+                log_px.backward()
+                optimizer.step()
+                loss_numpy = log_px.cpu().detach().numpy()
+                print(
+                    "Epoch = ",
+                    k,
+                    "/",
+                    nr_epochs,
+                    ",\t loss: ",
+                    np.round(loss_numpy, 6),
+                )
 
 
 class ListModule(torch.nn.Module):
