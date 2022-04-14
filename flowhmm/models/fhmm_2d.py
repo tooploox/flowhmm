@@ -339,6 +339,66 @@ class HMM_NMF_multivariate(torch.nn.Module):
         mu = mu.reshape(-1)
         return mu
 
+    def transition_model(self, log_alpha):
+        A = self.get_S() / torch.sum(self.get_S(), dim=1).unsqueeze(1)
+        log_transition_matrix = torch.log(A).transpose(1, 0)
+
+        # Matrix multiplication in the log domain
+        out = self.log_domain_matmul(
+            log_transition_matrix, log_alpha.view(-1, 1)
+        ).transpose(0, 1)
+        return out
+
+    def log_domain_matmul(self, log_A, log_B):
+        """
+        log_A : m x n
+        log_B : n x p
+        output : m x p matrix
+
+        Normally, a matrix multiplication
+        computes out_{i,j} = sum_k A_{i,k} x B_{k,j}
+
+        A log domain matrix multiplication
+        computes out_{i,j} = logsumexp_k log_A_{i,k} + log_B_{k,j}
+        """
+        m = log_A.shape[0]
+        n = log_A.shape[1]
+        p = log_B.shape[1]
+
+        # log_A_expanded = torch.stack([log_A] * p, dim=2)
+        # log_B_expanded = torch.stack([log_B] * m, dim=0)
+        # fix for PyTorch > 1.5 by egaznep on Github:
+        log_A_expanded = torch.reshape(log_A, (m, n, 1))
+        log_B_expanded = torch.reshape(log_B, (1, n, p))
+
+        elementwise_sum = log_A_expanded + log_B_expanded
+        out = torch.logsumexp(elementwise_sum, dim=1)
+
+        return out
+
+    def continuous_score(self, observations):
+        log_probs = []
+        x_all = observations.squeeze()
+        log_alpha = torch.zeros(x_all.shape[0], self.L).to(self.device)
+        log_state_priors = torch.log(torch.tensor(self.get_mu()).to(self.device))
+        x_tensor = torch.tensor(x_all).float().to(self.device)
+        for i, (mean, chol_param) in enumerate(zip(self.means1d_hat, self.cholesky_L_params)):
+            Cholesky_L = torch.tril(chol_param)
+            cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
+            dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
+            log_px = dist_normal.log_prob(x_tensor)
+            log_probs.append(log_px)
+        emt = torch.stack([log_prob for log_prob in log_probs]).T.squeeze()
+        log_alpha[0] = emt[0] + log_state_priors
+        for t, x_t in enumerate(x_all[1:], 1):
+            # transition_model bierze alphy z poprzedniego kroku i tam w srodku uzywa A
+            log_alpha[t] = emt[t] + self.transition_model(log_alpha[t - 1])
+
+        # Select the sum for the final timestep (each x may have different length).
+        log_sums = log_alpha.logsumexp(dim=1)
+
+        return log_sums[-1].detach().cpu().numpy()
+
     # def compute_P_torch(self, grid: torch.Tensor, add_noise=False, normalize=True):
     #     P = torch.zeros(len(grid), len(self.means1d_hat)).to(grid.device)
     #     for i, (mean, cov_un) in enumerate(zip(self.means1d_hat, self.covs1d_hat_un)):

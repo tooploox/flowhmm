@@ -747,6 +747,19 @@ def main():
         display_info_every_step=1,
     )
     model_hmm_nmf_torch_flow_multivariate.eval()
+    model_hmm_nmf_torch_multivariate.eval()
+    # print("Computing model_hmm_nmf_torch.continuous_score(obs_test) .... ")
+    logprob_torch_trained_continuous1 = model_hmm_nmf_torch_multivariate.continuous_score(obs_test)
+    # logprob_torch_trained_continuous2 = model_hmm_nmf_torch.continuous_score(obs_test_grid_labels)
+
+    print("Computing model_hmm_nmf_torch_flow.continuous_score(obs_test) .... ")
+    logprob_flow_trained_continuous = model_hmm_nmf_torch_flow_multivariate.continuous_score(
+        obs_test
+    )
+
+    print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained)
+    print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1)
+    print("logprob_flow_trained_continuous1= \t\t", logprob_flow_trained_continuous)
 
     if show_plots:
         if add_noise:

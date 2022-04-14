@@ -20,4 +20,4 @@ nr_observations: 10000
 # n = 10000
 grid_size: 15           # m = 30
 grid_size_all: 400         # number of grid points in total (used for strategy != uniform)
-grid_strategy:  mixed  #uniform, kmeans, kmeans2
+grid_strategy:  mixed  #uniform, mixed, kmeans, kmeans2
