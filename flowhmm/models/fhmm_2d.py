@@ -67,13 +67,13 @@ from flowhmm.utils import build_model_tabular, standard_normal_logprob
 #     return total_vars
 
 
-def compute_stat_distr(A):
-    evals, evecs = np.linalg.eig(A.T)
-    evec1 = evecs[:, np.isclose(evals, 1)]
-    stat_distr = evec1 / evec1.sum()
-    stat_distr = stat_distr.real
-    stat_distr = stat_distr.reshape(-1)
-    return stat_distr
+# def compute_stat_distr(A):
+#     evals, evecs = np.linalg.eig(A.T)
+#     evec1 = evecs[:, np.isclose(evals, 1)]
+#     stat_distr = evec1 / evec1.sum()
+#     stat_distr = stat_distr.real
+#     stat_distr = stat_distr.reshape(-1)
+#     return stat_distr
 
 
 def nnmf_hmm_discrete(observations, m, add_prior=False):
@@ -127,10 +127,13 @@ def compute_P_torch(
 
         Cholesky_L = torch.tril(chol_param)
 
-        cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
+        #cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
         # dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
-        dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
+        # dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
+        # TMP:
+        dist_normal = td.MultivariateNormal(loc=mean, scale_tril=Cholesky_L)
+
         P[:, i] = dist_normal.log_prob(grid)
 
     P = torch.exp(P)
@@ -384,8 +387,11 @@ class HMM_NMF_multivariate(torch.nn.Module):
         x_tensor = torch.tensor(x_all).float().to(self.device)
         for i, (mean, chol_param) in enumerate(zip(self.means1d_hat, self.cholesky_L_params)):
             Cholesky_L = torch.tril(chol_param)
-            cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
-            dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
+            # TMP:
+            # cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
+            # dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
+            dist_normal = td.MultivariateNormal(loc=mean, scale_tril=Cholesky_L)
+
             log_px = dist_normal.log_prob(x_tensor)
             log_probs.append(log_px)
         emt = torch.stack([log_prob for log_prob in log_probs]).T.squeeze()

@@ -11,11 +11,60 @@ import six
 import torch
 import yaml
 from termcolor import colored
+import scipy.stats
 
 import CNF_lib.layers as layers
 import CNF_lib.layers.wrappers.cnf_regularization as reg_lib
 import CNF_lib.spectral_norm as spectral_norm
 from CNF_lib.layers.odefunc import divergence_bf, divergence_approx
+
+
+
+def compute_stat_distr(A):
+    evals, evecs = np.linalg.eig(A.T)
+    evec1 = evecs[:, np.isclose(evals, 1)]
+    stat_distr = evec1 / evec1.sum()
+    stat_distr = stat_distr.real
+    stat_distr = stat_distr.reshape(-1)
+    return stat_distr
+
+
+def compute_joint_trans_matrix(A):
+    stat_distr = compute_stat_distr(A)
+    stat_distr_diag = torch.diag(torch.tensor(stat_distr))
+    #S=torch.matmul(A,stat_distr_diag)
+    S = torch.matmul(stat_distr_diag,A)
+#    S=S/torch.sum(S)
+    return S
+
+def compute_density_in_grid(hmmlearn_gmmhmm_model, L2, m_large, grid_large):
+    B_large_GMMHMM = np.zeros((L2, m_large))
+    for i in np.arange(L2):
+        for mixture_nr in np.arange(hmmlearn_gmmhmm_model.n_mix):
+
+            B_large_GMM_tmp = np.array(
+                [
+                    scipy.stats.norm.pdf(
+                        x,
+                        hmmlearn_gmmhmm_model.means_[i][mixture_nr].reshape(
+                            -1
+                        ),
+                        np.sqrt(
+                            hmmlearn_gmmhmm_model.covars_[i][
+                                mixture_nr
+                            ].reshape(-1)
+                        ),
+                    )
+                    for x in grid_large
+                ]
+            ).reshape(-1)
+            B_large_GMMHMM[i, :] = (
+                B_large_GMMHMM[i, :]
+                + B_large_GMM_tmp
+                * hmmlearn_gmmhmm_model.weights_[i][mixture_nr]
+            )
+    return B_large_GMMHMM
+
 
 logger = logging.getLogger(__name__)
 

@@ -45,14 +45,14 @@ def compute_total_var_dist(B1, B2, grid_large):
         distr2 = distr2 / np.sum(distr2)
         B2_means[i] = np.sum(distr2 * grid_large)
 
-    print("B1_means = ", B1_means)
-    print("B2_means = ", B2_means)
+    #print("B1_means = ", B1_means)
+    #print("B2_means = ", B2_means)
 
     knn = KNeighborsClassifier(n_neighbors=1)
     knn.fit(B1_means.reshape(-1, 1), np.arange(L))
 
     ordering = knn.predict(B2_means.reshape(-1, 1))
-    print("ordering=", ordering)
+    #print("ordering=", ordering)
 
     total_vars = np.zeros(L)
 
@@ -66,14 +66,14 @@ def compute_total_var_dist(B1, B2, grid_large):
 
     return total_vars
 
-
-def compute_stat_distr(A):
-    evals, evecs = np.linalg.eig(A.T)
-    evec1 = evecs[:, np.isclose(evals, 1)]
-    stat_distr = evec1 / evec1.sum()
-    stat_distr = stat_distr.real
-    stat_distr = stat_distr.reshape(-1)
-    return stat_distr
+#
+# def compute_stat_distr(A):
+#     evals, evecs = np.linalg.eig(A.T)
+#     evec1 = evecs[:, np.isclose(evals, 1)]
+#     stat_distr = evec1 / evec1.sum()
+#     stat_distr = stat_distr.real
+#     stat_distr = stat_distr.reshape(-1)
+#     return stat_distr
 
 
 def nnmf_hmm_discrete(observations, m):

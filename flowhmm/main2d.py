@@ -15,12 +15,17 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
 
-from models.fhmm import compute_stat_distr
+
 from models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
-from utils import set_seed, load_example
+from utils import set_seed, load_example, compute_stat_distr, compute_joint_trans_matrix
 
 
 # sample usage
+
+# python  flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs 1000  --show_plots --extra_n 30000 --loss_type kld --lrate 0.01
+
+# python  flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 1000  --show_plots --extra_n 30000 --loss_type kld --lrate 0.01
+
 # python -i flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 200  --show_plots=yes
 # python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --nr_epochs_torch 5000 --seed 139
 # python flowhmm/main2d.py -e examples/SYNTHETIC_2d_data_2G_1U.yaml --seed 4 --loss_type old  --nr_epochs_torch 3000 --init_with_kmeans True
@@ -685,6 +690,54 @@ def main():
     #
     #         [[-0.0504, 0.0000],
     #          [0.0686, -0.0480]]], device='cuda:0')
+
+    # TEST START
+    model_hmmlearn_gaussian_trained_test = GaussianHMM(
+        n_components=L, covariance_type="full"
+    )
+    model_hmmlearn_gaussian_trained_test.fit(obs_train)
+
+    test_means_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.means_)
+    test_covars_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.covars_)
+    test_cholesky_trained=torch.zeros(test_covars_trained.shape)
+
+    A_trained=torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
+
+
+
+    S_trained = compute_joint_trans_matrix(A_trained)
+    S_un_trained = torch.log(S_trained)
+
+    for i in np.arange(test_covars_trained.shape[0]):
+        test_cholesky_trained[i]=torch.linalg.cholesky(test_covars_trained[i])
+
+    model_hmm_nmf_torch_multivariate_test = HMM_NMF_multivariate(
+        Shat_un_init=S_un_trained,
+        means1d_hat_init=test_means_trained,
+        # covs1d_hat_un_init=covs1d_hat_un_init_2d,
+        # lepsza nazwa:
+        cholesky_L_params_init_2d=test_cholesky_trained,
+        m=m,
+        mm=mm,
+        # loss_type="old" #
+        loss_type=loss_type,
+    )
+
+    logprob_hmmlearn_gaussian_trained_test = model_hmmlearn_gaussian_trained_test.score(obs_test)
+
+    A_stat_distr = compute_stat_distr(A_trained)
+    model_hmmlearn_gaussian_trained_test.startprob_ = A_stat_distr
+
+    logprob_hmmlearn_gaussian_trained_test_v2 = model_hmmlearn_gaussian_trained_test.score(obs_test)
+
+    logprob_torch_trained_continuous_test = model_hmm_nmf_torch_multivariate_test.continuous_score(obs_test)
+    print("logprob_hmmlearn_gaussian_trained_test = \t", logprob_hmmlearn_gaussian_trained_test)
+    print("logprob_hmmlearn_gaussian_trained_test2 = \t", logprob_hmmlearn_gaussian_trained_test_v2)
+    print("logprob_torch_trained_continuous_test = \t", logprob_torch_trained_continuous_test)
+    print("test")
+    # TEST END
+
+
 
     model_hmm_nmf_torch_multivariate = HMM_NMF_multivariate(
         Shat_un_init=Shat_un_init,

@@ -17,9 +17,8 @@ from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
 
 from models.fhmm import HMM_NMF, HMM_NMF_FLOW
-from models.fhmm import compute_stat_distr
 from models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
-from utils import set_seed, load_example
+from utils import set_seed, load_example, compute_stat_distr, compute_density_in_grid, compute_joint_trans_matrix
 
 
 
@@ -396,7 +395,7 @@ def main():
     plt.bar(bins[:-1], H)
     plt.title("Histogram of observations")
 
-    print(colored("EXAMPLE  = " + EXAMPLE, "red"))
+    print(colored("EXAMPLE  = " + EXAMPLE, "yellow"))
 
     L2 = L
 
@@ -415,9 +414,12 @@ def main():
     )
 
     # separately we will make models with 2,5,10,15 mixtures, only to compute logprobs
-    n_mix_list = [1,2, 5, 10, 15]
+    #n_mix_list = [1, 2, 5, 10, 15, 20]
+    n_mix_list = [1, 5, 10, 20]
+
     model1D_hmmlearn_gmmhmm_trained_models =[GMMHMM(n_components=L2, covariance_type="full", n_mix=k)  for k in n_mix_list]
     logprob_hmmlearn_gmmhmm_trained_models = np.zeros(len(n_mix_list))
+    total_vars_means_hmmlearn_gmmhmm_trained_models = np.zeros(len(n_mix_list))
 
     for i in np.arange(len(n_mix_list)):
         model1D_hmmlearn_gmmhmm_trained_models[i].fit(obs_train.reshape(-1, 1))
@@ -438,31 +440,10 @@ def main():
     covs_trained_GaussianHMM = model1D_hmmlearn_gaussian_trained.covars_.reshape(-1)
 
     # GMMHMM
-    B_large_GMMHMM = np.zeros((L2, m_large))
-    for i in np.arange(L2):
-        for mixture_nr in np.arange(model1D_hmmlearn_gmmhmm_trained.n_mix):
+    B_large_GMMHMM = compute_density_in_grid(model1D_hmmlearn_gmmhmm_trained, L2, m_large, grid_large)
 
-            B_large_GMM_tmp = np.array(
-                [
-                    scipy.stats.norm.pdf(
-                        x,
-                        model1D_hmmlearn_gmmhmm_trained.means_[i][mixture_nr].reshape(
-                            -1
-                        ),
-                        np.sqrt(
-                            model1D_hmmlearn_gmmhmm_trained.covars_[i][
-                                mixture_nr
-                            ].reshape(-1)
-                        ),
-                    )
-                    for x in grid_large
-                ]
-            ).reshape(-1)
-            B_large_GMMHMM[i, :] = (
-                B_large_GMMHMM[i, :]
-                + B_large_GMM_tmp
-                * model1D_hmmlearn_gmmhmm_trained.weights_[i][mixture_nr]
-            )
+    B_large_GMMHMM_list = [compute_density_in_grid(model1D_hmmlearn_gmmhmm_trained_models[i], L2, m_large, grid_large)
+                           for i in np.arange(len(n_mix_list))]
 
     # GMM
     B_large_GaussianHMM = np.zeros((L2, m_large))
@@ -504,14 +485,14 @@ def main():
         torch.tensor(grid_large).to(device), normalize=False
     )
 
-    print(colored("Fitting model_hmm_nmf_torch ... ", "red"))
+    print(colored("Fitting model_hmm_nmf_torch ... ", "yellow"))
     model_hmm_nmf_torch.fit(
         torch.Tensor(grid).to(device),
         obs_train_grid_labels.reshape(-1),
         lr=lrate,
         nr_epochs=nr_epochs_torch,
     )
-    print(colored("DONE (fitting model_hmm_nmf_torch) ", "red"))
+    print(colored("DONE (fitting model_hmm_nmf_torch) ", "yellow"))
 
     P_torch_trained_large = model_hmm_nmf_torch.compute_P_torch(
         torch.tensor(grid_large).to(device), normalize=False
@@ -544,7 +525,7 @@ def main():
             Shat_un_init=Shat_un_init, m=m, params=args
         )
 
-    print(colored("Fitting model_hmm_nmf_torch_flow ... ", "red"))
+    print(colored("Fitting model_hmm_nmf_torch_flow ... ", "yellow"))
     # model_hmm_nmf_torch_flow.train()
     model_hmm_nmf_torch_flow.fit(
         torch.Tensor(grid).to(device),
@@ -554,7 +535,7 @@ def main():
         display_info_every_step=1,
     )
     model_hmm_nmf_torch_flow.eval()
-    print(colored("DONE (fitting model_hmm_nmf_torch_flow) ", "red"))
+    print(colored("DONE (fitting model_hmm_nmf_torch_flow) ", "yellow"))
 
     P_torch_flow_trained_large = model_hmm_nmf_torch_flow.compute_P_torch(
         torch.tensor(grid_large).to(device), normalize=False
@@ -619,6 +600,13 @@ def main():
             show_both_on_rhs=True,
         )
 
+    B_large_GMMHMM_list = [
+        compute_density_in_grid(model1D_hmmlearn_gmmhmm_trained_models[i], L2, m_large, grid_large)
+        for i in np.arange(len(n_mix_list))]
+
+    S_GMMHMM_list = [compute_joint_trans_matrix(torch.tensor(model1D_hmmlearn_gmmhmm_trained_models[i].transmat_))
+                     for i in np.arange(len(B_large_GMMHMM_list))]
+
     if DATA_TYPE != "REAL":
         MAD_gauss = compute_MAD(
             S_orig.to(device),
@@ -626,6 +614,22 @@ def main():
             S_gauss,
             torch.tensor(B_large_GaussianHMM.T).to(device),
         )
+
+        MADs_GMMHMM_list = [compute_MAD(
+            S_orig.to(device),
+            torch.tensor(B_orig_large).to(device),
+            S_GMMHMM_list[i],
+            torch.tensor(B_large_GMMHMM_list[i].T).to(device))
+            for i in np.arange(len(B_large_GMMHMM_list))
+        ]
+
+        print("test")
+        #
+        # S_GMMHMM_list = [compute_joint_trans_matrix(torch.tensor(model1D_hmmlearn_gmmhmm_trained_models[i].transmat_))
+        #                  for i in np.arange(len(B_large_GMMHMM_list))]
+
+
+
         MAD_torch = compute_MAD(
             S_orig.to(device),
             torch.tensor(B_orig_large).to(device),
@@ -639,15 +643,22 @@ def main():
             P_torch_flow_trained_large,
         )
 
-        print(colored("MADs:", color="red"))
-        print(
-            "MAD_gauss = ",
-            MAD_gauss,
-            ",\tMAD_torch = ",
-            MAD_torch,
-            ",\tMAD_torch_flow = ",
-            MAD_torch_flow,
+
+
+
+        print("\n")
+        print(colored("NUMBERS TO BE REPORTED (except MADs?):", color="red"))
+        print(colored("MADs:", color="yellow"))
+        print(colored(
+            "MAD_gauss = "+str(MAD_gauss)+",\tMAD_torch = "+str(MAD_torch)+str(",\tMAD_torch_flow = ")
+            +str(MAD_torch_flow),"red")
         )
+
+        for nr, i in enumerate(n_mix_list):
+            print(colored("MAD GMM-HMM, n_mix = " + str(i) + " :" + str(
+                MADs_GMMHMM_list[nr]), "red"))
+
+
         print("\n")
 
         # print("grid = ", grid)
@@ -725,15 +736,23 @@ def main():
             total_vars_GaussianHMM_trained = compute_total_var_dist(
                 B_orig_large, B_large_GaussianHMM, grid_large
             )
+
+
+            total_vars_means_GMMHMM_trained = [np.mean(compute_total_var_dist(B_orig_large, B_large_GMMHMM_list[i], grid_large))
+                         for i in np.arange(len(B_large_GMMHMM_list))]
+
+
+
             print(
                 colored(
                     "TOTAL VARIATION between B_orig_large AND B_large_GaussianHMM:",
-                    "red",
+                    "yellow",
                 )
             )
             for i, tv in enumerate(total_vars_GaussianHMM_trained):
-                print("ROW i=", i, ", \t TOTAL VAR = ", tv)
-            print("MEAN TOTAL VAR = ", np.mean(total_vars_GaussianHMM_trained))
+                #print(colored("ROW i=" + str(i) + ", \t TOTAL VAR = " + str(tv),"grey"))
+                print( "ROW i=" + str(i) + ", \t TOTAL VAR = " + str(tv) )
+            print(colored("MEAN TOTAL VAR (GMM) = " +str(np.mean(total_vars_GaussianHMM_trained)),"red"))
             polyaxon.tracking.log_outputs(
                 total_vars_GaussianHMM_trained=np.mean(
                     total_vars_GaussianHMM_trained
@@ -746,12 +765,13 @@ def main():
             print(
                 colored(
                     "TOTAL VARIATION between  B_orig_large AND P_torch_trained_large:",
-                    "red",
+                    "yellow"
                 )
             )
             for i, tv in enumerate(total_vars_torch_trained):
-                print("ROW i=", i, ", \t TOTAL VAR = ", tv)
-            print("MEAN TOTAL VAR = ", np.mean(total_vars_torch_trained))
+                #print(colored("ROW i=" + str(i) + ", \t TOTAL VAR = " + str(tv), "grey"))
+                print("ROW i=" + str(i) + ", \t TOTAL VAR = " + str(tv))
+            print("MEAN TOTAL VAR = "+str(np.mean(total_vars_torch_trained)))
 
             total_vars_torch_flow_trained = compute_total_var_dist(
                 B_orig_large,
@@ -760,18 +780,26 @@ def main():
             )
             print(
                 colored(
-                    "TOTAL VARIATION between  B_orig_large AND P_torch_flor_trained_large:",
-                    "red",
+                    "TOTAL VARIATION between  B_orig_large AND P_torch_flow_trained_large:",
+                    "yellow",
                 )
             )
             for i, tv in enumerate(total_vars_torch_flow_trained):
                 print("ROW i=", i, ", \t TOTAL VAR = ", tv)
-            print("MEAN TOTAL VAR = ", np.mean(total_vars_torch_flow_trained))
+            print(colored("MEAN TOTAL VAR (FLOW) = " +str(np.mean(total_vars_torch_flow_trained)),"red"))
             polyaxon.tracking.log_outputs(
                 total_vars_torch_flow_trained=np.mean(
                     total_vars_torch_flow_trained
                 ).item()
             )
+            print("\n")
+            for nr, i in enumerate(n_mix_list):
+                print(colored("MEAN TOTAL VAR GMM-HMM (hmmlearn), n_mix = " + str(i) + " :" + str(
+                    total_vars_means_GMMHMM_trained[nr] ), "red"))
+
+
+
+
         else:
             total_vars_GaussianHMM_trained = -1
             total_vars_torch_trained = -1
@@ -789,8 +817,6 @@ def main():
         obs_test
     )
 
-    # powyzsze troche trwa, co ciekawe, ponizsze (na danych "zgridowanych" do integerow) jest duzo szybsze
-    # logprob_flow_trained_continuous2 = model_hmm_nmf_torch_flow.continuous_score(obs_test_grid_labels)
 
     print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained)
     print("logprob_hmmlearn_gmmhmm_trained =\t\t", logprob_hmmlearn_gmmhmm_trained)
@@ -827,15 +853,25 @@ def main():
     )
     print("Done.")
     print(log_prob_results)
-    print("Noralized logprobs: \n",
-        {
-            "FlowHMM": log_prob_results["cflow"] / n,
-            "H-Gauss (hmmlearn)": log_prob_results["hmmlearn"] / n,
-            "GMM-HMM (hmmlearn, n_mix="+str(n_mix)+")": log_prob_results["gmmhmm"] / n,
-        }
-    )
+
+    # print("Noralized logprobs: \n",
+    #     {
+    #         "FlowHMM": log_prob_results["cflow"] / n,
+    #         "H-Gauss (hmmlearn)": log_prob_results["hmmlearn"] / n,
+    #         "GMM-HMM (hmmlearn, n_mix="+str(n_mix)+")": log_prob_results["gmmhmm"] / n,
+    #     }
+    # )
+    print(colored("NLLs","red"))
+
+    print(colored("logprob_hmmlearn_gaussian_trained =\t\t"+str(logprob_hmmlearn_gaussian_trained/ n),"red"))
+    print(colored("logprob_hmmlearn_gmmhmm_trained =\t\t"+str(logprob_hmmlearn_gmmhmm_trained/ n),"red"))
+
+    print(colored("logprob_torch_trained_continuous1= \t\t"+str(logprob_torch_trained_continuous1/ n),"red"))
+    # print("logprob_torch_trained_continuous2= \t\t", logprob_torch_trained_continuous2/ n)
+    print(colored("logprob_flow_trained_continuous1= \t\t"+str(logprob_flow_trained_continuous/ n),"red"))
+
     for nr,i in enumerate(n_mix_list):
-        print("GMM-HMM (hmmlearn), n_mix = ", i, " :", logprob_hmmlearn_gmmhmm_trained_models[nr]/n)
+        print(colored("GMM-HMM (hmmlearn), n_mix = "+str(i) + " :" +str(logprob_hmmlearn_gmmhmm_trained_models[nr]/n),"red"))
 
     if output_file is not None:
         data_to_save = {
