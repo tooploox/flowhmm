@@ -19,6 +19,8 @@ transition_matrix: [[0.4, 0.2, 0.4], [0.25, 0.5, 0.25], [0.4, 0.2, 0.4]] # A_ori
 
 nr_observations: 1000
 # n = 10000
-grid_size: 15           # m = 30
-grid_size_all: 400         # number of grid points in total (used for strategy != uniform)
+
+grid_size: 15           # m = 30 for strategy: {uniform, kmeans2 } grid_size_all = grid_size**2
+                                 # for strategy mixed grid_size_all=(grid_size/2)**2+(grid_size/2)**2=grid_size**2/2
+grid_size_all: 400         # number of grid points in total (used for strategy kmeans only)
 grid_strategy:  mixed  #uniform, mixed, kmeans, kmeans2

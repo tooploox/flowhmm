@@ -1,0 +1,18 @@
+
+data_type: real
+
+nr_hidden_states: 2 #2,3,4
+
+dataset:
+  #filepath: data_upload/1.csv.gz # 162501 rows
+  #filepath: /home/peyo/repos/DeepHMMFlow/data/real/daily-min-temperatures.csv # 162501 rows
+  filepath: /home/peyo/repos/flowhmm/data/real/SP500/SP500.csv
+  load_args:
+    header: 0  # None
+    compression: #gzip
+
+  column: Diff # Diff #logreturn
+
+nr_observations: 1000  # n = 10000, T
+grid_size: 30           # m = 30
+grid_strategy: "uniform"
