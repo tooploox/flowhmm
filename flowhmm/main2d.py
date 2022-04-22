@@ -58,7 +58,8 @@ def ParseArguments():
         "-e",
         "--example_yaml",
         type=str,
-        default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
+        #default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
+        default="examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion.yaml",
         help="Path to example YAML config file",
     )
     parser.add_argument(
@@ -197,6 +198,20 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
             params_mean = distributions[current_state]["params"]["mean"]
             params_cov = distributions[current_state]["params"]["cov"]
             observations[k, :] = np.random.multivariate_normal(params_mean, params_cov)
+
+        if distributions[current_state]["name"] == "gbm":
+            params_r = distributions[current_state]["params"]["r"]
+            params_sigma = distributions[current_state]["params"]["sigma"]
+            params_mu=params_r -params_sigma**2/2
+            params_S0 = distributions[current_state]["params"]["S0"]
+            p_cov_matrix=np.array([[1,1/2],[1/2,1]])
+            p_means = np.array([0,0])
+            B05,B1=np.random.multivariate_normal(p_means , p_cov_matrix)
+            S05 = params_S0 * np.exp(params_mu * 0.5 + params_sigma * B05)
+            S1 = params_S0 * np.exp(params_mu * 1 + params_sigma * B1)
+
+            observations[k, :] = np.array([[S05,S1]])
+
 
         current_state = np.random.choice(
             np.arange(n_states), 1, p=transmat[current_state, :].reshape(-1)
@@ -391,6 +406,15 @@ def main():
         # y_max = np.max(obs_train[:, 1]) + 0.05 * np.abs(np.min(obs_train[:, 1]))
 
         # new:
+
+
+
+        ## ADDED: normalization
+        obs_mean = np.mean(obs_train, axis=0)
+        obs_train=obs_train-obs_mean
+        obs_test=obs_test-obs_mean
+
+
         x_min = np.min(obs_train[:, 0])
         x_max = np.max(obs_train[:, 0])
 
