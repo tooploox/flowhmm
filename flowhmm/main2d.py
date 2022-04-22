@@ -721,16 +721,16 @@ def main():
     )
     model_hmmlearn_gaussian_trained_test.fit(obs_train)
 
-    test_means_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.means_)
-    test_covars_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.covars_)
-    test_cholesky_trained=torch.zeros(test_covars_trained.shape)
+    test_means_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.means_).float().to(device)
+    test_covars_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.covars_).float().to(device)
+    test_cholesky_trained = torch.zeros(test_covars_trained.shape).float().to(device)
 
     A_trained=torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
 
 
 
     S_trained = compute_joint_trans_matrix(A_trained)
-    S_un_trained = torch.log(S_trained)
+    S_un_trained = torch.log(S_trained).float().to(device)
 
     for i in np.arange(test_covars_trained.shape[0]):
         test_cholesky_trained[i]=torch.linalg.cholesky(test_covars_trained[i])
