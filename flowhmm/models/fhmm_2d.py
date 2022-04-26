@@ -79,14 +79,14 @@ from flowhmm.utils import build_model_tabular, standard_normal_logprob
 def nnmf_hmm_discrete(observations, m, add_prior=False):
 
     if add_prior:
-        Q = np.zeros((m, m)) + 1
+        Q = np.zeros((m, m)) + 0.1
     else:
         Q = np.zeros((m, m))
     for i in range(1, len(observations)):
         Q[observations[i - 1], observations[i]] += 1
 
     if add_prior:
-        Q /= len(observations) - 1 + m * m # ??
+        Q /= len(observations) - 1 + m * m * 0.1 # ??
     else:
         Q /= len(observations)
     return Q

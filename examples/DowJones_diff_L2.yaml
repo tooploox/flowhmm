@@ -1,0 +1,16 @@
+
+data_type: real
+
+nr_hidden_states: 2
+
+dataset:
+  filepath: /home/maciej/PycharmProjects/flowhmm/data/real/DowJones/DowJones_diff_2.csv # /home/maciej/Pobrane/archive/istanbul_stock_exchange.csv # 162501 rows
+  load_args:
+    header: 0 # None
+    compression: #gzip
+
+  column: Diff
+
+nr_observations: 1000 #300  # n = 10000, T
+grid_size: 30          # m = 30
+grid_strategy: "uniform"
