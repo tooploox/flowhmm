@@ -706,7 +706,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
 
         return out
 
-    def continuous_score(self, observations):
+    def continuous_score(self, observations, detach=True):
         log_probs = []
         x_all = observations.squeeze()
         log_alpha = torch.zeros(x_all.shape[0], self.L).to(self.device)
@@ -731,7 +731,10 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
         # Select the sum for the final timestep (each x may have different length).
         log_sums = log_alpha.logsumexp(dim=1)
 
-        return log_sums[-1].detach().cpu().numpy()
+        if detach:
+            return log_sums[-1].detach().cpu().numpy()
+        else:
+            return log_sums[-1]
 
     def compute_Q_torch(self, grid: torch.Tensor, Shat: torch.Tensor, add_noise=False):
         # P = torch.exp(compute_P_torch(grid, means, covs))
@@ -848,6 +851,62 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                 )
 
         return True
+
+    def fit_EM(self,
+        observations,
+        nr_epochs=5000,
+        lr=0.1,
+        display_info_every_step=50,
+        checkpoint_path=None,
+    ):
+
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=0.0001)
+        best_loss = np.inf
+        init_epoch = 0
+
+        if checkpoint_path and os.path.isfile(checkpoint_path):
+            print(f"Restoring model from checkpoint {checkpoint_path}")
+            checkpoint = torch.load(checkpoint_path)
+            self.load_state_dict(checkpoint["model_state_dict"])
+            if "optimizer_state_dict" not in checkpoint.keys():
+                print("Warning: checkpoint model has no state for optimizer.")
+            else:
+                optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            init_epoch = checkpoint["epoch"]
+            best_loss = checkpoint["loss"]
+            print(f"Restored after epoch={init_epoch}, loss={best_loss:.6f}")
+            init_epoch += 1
+
+        for it in range(init_epoch, nr_epochs):
+            optimizer.zero_grad()
+            loss = -1.0 * self.continuous_score(observations, detach=False)
+            loss.backward(retain_graph=True)
+            optimizer.step()
+            loss_numpy = loss.cpu().detach().numpy()
+            if it < 50 or np.mod(it, display_info_every_step) == 0:
+                print(
+                    "Epoch = ",
+                    it,
+                    "/",
+                    nr_epochs,
+                    ",\t loss: ",
+                    np.round(loss_numpy, 6),
+                )
+                polyaxon.tracking.log_metric("train/loss_flow", loss_numpy, step=it)
+            if checkpoint_path and loss_numpy < best_loss:
+                print(
+                    f"Epoch: {it} loss ({loss_numpy:.6f}) is better than {best_loss:.6f}. Saving best loss to file {checkpoint_path}"
+                )
+                best_loss = loss_numpy
+                self.save_weights(
+                    checkpoint_path=checkpoint_path,
+                    epoch=it,
+                    loss=loss_numpy,
+                    optimizer=optimizer,
+                )
+
+        return True
+
 
     def load_weights(self, checkpoint_path) -> Tuple[int, float]:
         """

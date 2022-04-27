@@ -92,6 +92,9 @@ def ParseArguments():
     parser.add_argument(
         "--seed", default=1, type=int, required=False, help="default seed"
     )
+    parser.add_argument(
+        "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
+    )
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
         "--output_file", default=None, required=False, help="file to save results (pkl)"
@@ -281,6 +284,7 @@ def main():
     add_noise = args.add_noise
     noise_var = args.noise_var
     loss_type = args.loss_type
+    training_type = args.training_type
     n = example_config.nr_observations
     lrate = float(args.lrate)
 
@@ -816,13 +820,21 @@ def main():
     model_hmm_nmf_torch_flow_multivariate = HMM_NMF_FLOW_multivariate(
         Shat_un_init=Shat_un_init, m=m, mm=mm, dim=grid_all.shape[1], params=args
     )
-    model_hmm_nmf_torch_flow_multivariate.fit(
-        torch.Tensor(grid_all).to(device),
-        obs_train_grid_labels.reshape(-1),
-        lr=lrate,
-        nr_epochs=nr_epochs,
-        display_info_every_step=1,
-    )
+    if training_type == 'Q_training':
+        model_hmm_nmf_torch_flow_multivariate.fit(
+            torch.Tensor(grid_all).to(device),
+            obs_train_grid_labels.reshape(-1),
+            lr=lrate,
+            nr_epochs=nr_epochs,
+            display_info_every_step=1,
+        )
+    if training_type == 'EM':
+        model_hmm_nmf_torch_flow_multivariate.fit_EM(
+            torch.Tensor(obs_train).float().to(device),
+            lr=lrate,
+            nr_epochs=nr_epochs,
+            display_info_every_step=1,
+        )
     model_hmm_nmf_torch_flow_multivariate.eval()
     model_hmm_nmf_torch_multivariate.eval()
     # print("Computing model_hmm_nmf_torch.continuous_score(obs_test) .... ")
@@ -834,9 +846,9 @@ def main():
         obs_test
     )
 
-    print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained)
-    print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1)
-    print("logprob_flow_trained_continuous1= \t\t", logprob_flow_trained_continuous)
+    print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained/obs_test.shape[0])
+    print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1/obs_test.shape[0])
+    print("logprob_flow_trained_continuous1= \t\t", logprob_flow_trained_continuous/obs_test.shape[0])
 
     if show_plots:
         if add_noise:
