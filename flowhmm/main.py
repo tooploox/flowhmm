@@ -58,8 +58,11 @@ def ParseArguments():
         "--nr_epochs", default=10, type=int, required=False, help="nr of epochs"
     )
     parser.add_argument("--loss_type", type=str, default="kld", choices=["old", "kld"])
-
+    parser.add_argument(
+        "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
+    )
     parser.add_argument("--pretrain_flow", type=eval, default=False)
+
     parser.add_argument(
         "--nr_epochs_torch",
         default=10,
@@ -197,7 +200,7 @@ def main():
     n_mix = args.n_mix
 
     lrate = float(args.lrate)
-
+    training_type = args.training_type
     output_file = args.output_file
 
     # Debugging
@@ -527,13 +530,22 @@ def main():
 
     print(colored("Fitting model_hmm_nmf_torch_flow ... ", "yellow"))
     # model_hmm_nmf_torch_flow.train()
-    model_hmm_nmf_torch_flow.fit(
-        torch.Tensor(grid).to(device),
-        obs_train_grid_labels.reshape(-1),
-        lr=lrate,
-        nr_epochs=nr_epochs,
-        display_info_every_step=1,
-    )
+    if training_type == 'Q_training':
+        model_hmm_nmf_torch_flow.fit(
+            torch.Tensor(grid).to(device),
+            obs_train_grid_labels.reshape(-1),
+            lr=lrate,
+            nr_epochs=nr_epochs,
+            display_info_every_step=1,
+        )
+    if training_type == 'EM':
+        model_hmm_nmf_torch_flow.fit_EM(
+            torch.Tensor(obs_train).float().to(device),
+            lr=lrate,
+            nr_epochs=nr_epochs,
+            display_info_every_step=1,
+        )
+
     model_hmm_nmf_torch_flow.eval()
     print(colored("DONE (fitting model_hmm_nmf_torch_flow) ", "yellow"))
 
