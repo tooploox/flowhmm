@@ -1,4 +1,5 @@
 import os.path
+import random
 from typing import Tuple
 
 import numpy as np
@@ -538,6 +539,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
         self.device = self.Shat_un.device
         self.init_params = init_params
         self.loss_type = params.loss_type
+        self.max_shape = 1000
         cnfs = []
         for k in range(self.L):
             cnfs.append(build_model_tabular(params, dim).to(self.device))
@@ -887,7 +889,12 @@ class HMM_NMF_FLOW(torch.nn.Module):
 
         for it in range(init_epoch, nr_epochs):
             optimizer.zero_grad()
-            loss = -1.0 * self.continuous_score(observations, detach=False)
+            if observations.shape[0] > self.max_shape:
+                n = random.randint(0, observations.shape[0]-self.max_shape)
+                oservations_temp = observations[n: n + self.max_shape]
+            else:
+                oservations_temp = observations
+            loss = -1.0 * self.continuous_score(oservations_temp, detach=False)
             loss.backward(retain_graph=True)
             optimizer.step()
             loss_numpy = loss.cpu().detach().numpy()
