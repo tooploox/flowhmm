@@ -20,7 +20,7 @@ from models.fhmm import HMM_NMF, HMM_NMF_FLOW
 from models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
 from utils import set_seed, load_example, compute_stat_distr, compute_density_in_grid, compute_joint_trans_matrix
 
-
+from sklearn import metrics
 
 def ParseArguments():
     NONLINEARITIES = ["tanh", "relu", "softplus", "elu", "swish", "square", "identity"]
@@ -149,14 +149,17 @@ def simulate_observations(n, mu, transmat, distributions):
         return func(**params)
 
     observations = np.zeros(n)
+    hidden_states = np.zeros(n)
+
     n_states = len(distributions)
     current_state = np.random.choice(np.arange(n_states), size=1, p=mu.reshape(-1))[0]
     for k in np.arange(n):
         observations[k] = sample(**distributions[current_state])
+        hidden_states[k]=current_state
         current_state = np.random.choice(
             np.arange(n_states), 1, p=transmat[current_state, :].reshape(-1)
         )[0]
-    return observations
+    return observations, hidden_states
 
 
 def get_dist(name, params):
@@ -319,13 +322,13 @@ def main():
         S_orig = torch.tensor(np.dot(np.diag(mu_orig), A_orig))
 
         # SIMULATE OBSERVATIONS:
-        obs_train = simulate_observations(
+        obs_train, hidden_states_train = simulate_observations(
             n,
             mu=mu_orig,
             transmat=A_orig,
             distributions=example_config.hidden_states_distributions,
         )
-        obs_test = simulate_observations(
+        obs_test, hidden_states_test = simulate_observations(
             n,
             mu=mu_orig,
             transmat=A_orig,
@@ -448,6 +451,7 @@ def main():
     logprob_hmmlearn_gaussian_trained = model1D_hmmlearn_gaussian_trained.score(
         obs_test.reshape(-1, 1)
     )
+
 
     means_trained_GaussianHMM = model1D_hmmlearn_gaussian_trained.means_.reshape(-1)
     covs_trained_GaussianHMM = model1D_hmmlearn_gaussian_trained.covars_.reshape(-1)
@@ -630,6 +634,45 @@ def main():
                      for i in np.arange(len(B_large_GMMHMM_list))]
 
     if DATA_TYPE != "REAL":
+
+        # ACCURACY / CONF. MATRICES:
+
+        model1D_hmmlearn_gaussian_hidden_states_test_predicted = model1D_hmmlearn_gaussian_trained.predict(
+            obs_test.reshape(-1, 1))
+
+        model1D_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(hidden_states_test,
+                                                                              model1D_hmmlearn_gaussian_hidden_states_test_predicted)
+        model1D_hmmlearn_gaussian_accuracy = metrics.accuracy_score(hidden_states_test,
+                                                                    model1D_hmmlearn_gaussian_hidden_states_test_predicted)
+
+        GMMHMM_accuracy_scores = [
+            metrics.accuracy_score(hidden_states_test,
+                                   model1D_hmmlearn_gmmhmm_trained_models[i].predict(obs_test.reshape(-1, 1)))
+            for i in np.arange(len(n_mix_list))]
+
+        GMMHMM_conf_matrices  = [
+            metrics.confusion_matrix(hidden_states_test,
+                                   model1D_hmmlearn_gmmhmm_trained_models[i].predict(obs_test.reshape(-1, 1)))
+            for i in np.arange(len(n_mix_list))]
+
+        print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
+
+        print(
+            colored("ACCURACY: hmmlearn_gaussian =\t\t" + str(model1D_hmmlearn_gaussian_accuracy), "red"))
+
+
+        for nr, i in enumerate(n_mix_list):
+            print(colored("ACCURACY: GMM-HMM (hmmlearn), n_mix = " + str(i) + " :" + str(
+                GMMHMM_accuracy_scores[nr]), "red"))
+
+
+        print(colored("CONFUSION MATRICES", "red"))
+        print(colored("CONF. MATRIX: hmmlear_gaussian","red"), model1D_hmmlearn_gaussian_confusion_matrix)
+        for nr, i in enumerate(n_mix_list):
+            print(colored("CONF_MATRIX: GMM-HMM (hmmlearn), n_mix = " + str(i) + " :\n" + str(
+                GMMHMM_conf_matrices[nr]), "red"))
+
+
         MAD_gauss = compute_MAD(
             S_orig.to(device),
             torch.tensor(B_orig_large).to(device),
@@ -645,7 +688,7 @@ def main():
             for i in np.arange(len(B_large_GMMHMM_list))
         ]
 
-        print("test")
+
         #
         # S_GMMHMM_list = [compute_joint_trans_matrix(torch.tensor(model1D_hmmlearn_gmmhmm_trained_models[i].transmat_))
         #                  for i in np.arange(len(B_large_GMMHMM_list))]
@@ -841,6 +884,7 @@ def main():
 
 
     print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained)
+
     print("logprob_hmmlearn_gmmhmm_trained =\t\t", logprob_hmmlearn_gmmhmm_trained)
 
     print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1)
