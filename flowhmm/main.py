@@ -234,9 +234,14 @@ def main():
         ic(pd.DataFrame(df_train).describe())
         n = example_config.nr_observations
         n_train = n
-        n_test = min(n_train, len(df_train) - n_train)
+
+        #OLD: n_test = min(n_train, len(df_train) - n_train)
+        n_test = len(df_train)-n_train
+
+        print("n_train = ", n_train, ", n_test = ", n_test)
         obs_train = np.array(df_train[:n_train], dtype=np.float)
         obs_test = np.array(df_train[n_train : n_train + n_test], dtype=np.float)
+
 
         m = example_config.grid_size
         L = example_config.nr_hidden_states
@@ -303,6 +308,7 @@ def main():
 
         m = example_config.grid_size
         n = example_config.nr_observations
+
         if args.extra_n:
             n = args.extra_n
         if args.extra_L:
@@ -325,6 +331,10 @@ def main():
             transmat=A_orig,
             distributions=example_config.hidden_states_distributions,
         )
+
+        # in all our examples we take n_train=n_test=n
+        n_train = n
+        n_test = n
 
         x_min = np.min(obs_train) - 0.05 * np.abs(np.min(obs_train))
         x_max = np.max(obs_train) + 0.05 * np.abs(np.max(obs_train))
@@ -873,17 +883,19 @@ def main():
     #         "GMM-HMM (hmmlearn, n_mix="+str(n_mix)+")": log_prob_results["gmmhmm"] / n,
     #     }
     # )
+    print("n = ", n, ", n_train = ", n_train, ", n_test = ", n_test)
     print(colored("NLLs","red"))
 
-    print(colored("logprob_hmmlearn_gaussian_trained =\t\t"+str(logprob_hmmlearn_gaussian_trained/ n),"red"))
-    print(colored("logprob_hmmlearn_gmmhmm_trained =\t\t"+str(logprob_hmmlearn_gmmhmm_trained/ n),"red"))
+    print(colored("logprob_hmmlearn_gaussian_trained =\t\t"+str(logprob_hmmlearn_gaussian_trained/ n_test),"red"))
+    print(colored("logprob_hmmlearn_gmmhmm_trained =\t\t"+str(logprob_hmmlearn_gmmhmm_trained/ n_test),"red"))
 
-    print(colored("logprob_torch_trained_continuous1= \t\t"+str(logprob_torch_trained_continuous1/ n),"red"))
+    print(colored("logprob_torch_trained_continuous1= \t\t"+str(logprob_torch_trained_continuous1/ n_test),"red"))
     # print("logprob_torch_trained_continuous2= \t\t", logprob_torch_trained_continuous2/ n)
-    print(colored("logprob_flow_trained_continuous1= \t\t"+str(logprob_flow_trained_continuous/ n),"red"))
+    print(colored("logprob_flow_trained_continuous1= \t\t"+str(logprob_flow_trained_continuous/ n_test),"red"))
+
 
     for nr,i in enumerate(n_mix_list):
-        print(colored("GMM-HMM (hmmlearn), n_mix = "+str(i) + " :" +str(logprob_hmmlearn_gmmhmm_trained_models[nr]/n),"red"))
+        print(colored("GMM-HMM (hmmlearn), n_mix = "+str(i) + " :" +str(logprob_hmmlearn_gmmhmm_trained_models[nr]/n_test),"red"))
 
     if output_file is not None:
         data_to_save = {
