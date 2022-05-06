@@ -14,7 +14,7 @@ from matplotlib.patches import Ellipse
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
-
+from sklearn.datasets import make_moons
 from sklearn import metrics
 
 from models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
@@ -183,6 +183,20 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
     # dimension:
     dim = 2  # to powinno sie odczytac z params
 
+    moons_boolean = False
+
+    for i in np.arange(len(distributions)):
+        if (distributions[i]['name']=="moon1" or distributions[i]['name']=="moon2"):
+            moons_boolean = True
+            j=i
+
+    if moons_boolean:
+        XY, moon_class = make_moons(n_samples=2*n, noise=0.1)
+        XY_moon1 = XY[moon_class == 0]
+        XY_moon2 = XY[moon_class == 1]
+        moon1_next = 0
+        moon2_next = 0
+
     observations = np.zeros((n, dim))
     hidden_states = np.zeros(n)
 
@@ -205,6 +219,14 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
             params_mean = distributions[current_state]["params"]["mean"]
             params_cov = distributions[current_state]["params"]["cov"]
             observations[k, :] = np.random.multivariate_normal(params_mean, params_cov)
+
+        if distributions[current_state]["name"] == "moon1":
+            observations[k, :] = XY_moon1[moon1_next]
+            moon1_next = moon1_next + 1
+
+        if distributions[current_state]["name"] == "moon2":
+            observations[k, :] = XY_moon2[moon2_next]
+            moon2_next = moon2_next + 1
 
         if distributions[current_state]["name"] == "gbm":
             params_r = distributions[current_state]["params"]["r"]
