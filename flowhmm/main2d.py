@@ -15,6 +15,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
 
+from sklearn import metrics
 
 from models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
 from utils import set_seed, load_example, compute_stat_distr, compute_joint_trans_matrix
@@ -183,6 +184,8 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
     dim = 2  # to powinno sie odczytac z params
 
     observations = np.zeros((n, dim))
+    hidden_states = np.zeros(n)
+
     # n_states = len(distributions)
     n_states = transmat.shape[0]
     current_state = np.random.choice(np.arange(n_states), size=1, p=mu.reshape(-1))[0]
@@ -195,6 +198,7 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
                 np.random.uniform(params_low[0], params_high[0]),
                 np.random.uniform(params_low[1], params_high[1]),
             ]
+
             # sample(**distributions[current_state])
 
         if distributions[current_state]["name"] == "normal":
@@ -215,11 +219,11 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
 
             observations[k, :] = np.array([[S05,S1]])
 
-
+        hidden_states[k] = current_state
         current_state = np.random.choice(
             np.arange(n_states), 1, p=transmat[current_state, :].reshape(-1)
         )[0]
-    return observations
+    return observations, hidden_states
 
 
 def get_dist(name, params):
@@ -389,18 +393,21 @@ def main():
         ic(A_orig, mu_orig, S_orig)
 
         # SIMULATE OBSERVATIONS:
-        obs_train = simulate_observations_multivariate(
+        obs_train, hidden_states_train = simulate_observations_multivariate(
             n,
             mu=mu_orig,
             transmat=A_orig,
             distributions=example_config.hidden_states_distributions,
         )
-        obs_test = simulate_observations_multivariate(
+        obs_test, hidden_states_test = simulate_observations_multivariate(
             n,
             mu=mu_orig,
             transmat=A_orig,
             distributions=example_config.hidden_states_distributions,
         )
+
+        n_train = n
+        n_test = n
 
         # old:
         # x_min = np.min(obs_train[:, 0]) - 0.05 * np.abs(np.min(obs_train[:, 0]))
@@ -724,6 +731,18 @@ def main():
         n_components=L, covariance_type="full"
     )
     model_hmmlearn_gaussian_trained_test.fit(obs_train)
+
+    model_hmmlearn_gaussian_hidden_states_test_predicted =model_hmmlearn_gaussian_trained_test.predict(obs_test)
+
+    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(hidden_states_test,model_hmmlearn_gaussian_hidden_states_test_predicted)
+    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(hidden_states_test,model_hmmlearn_gaussian_hidden_states_test_predicted)
+
+    print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
+    print(
+        colored("ACCURACY: hmmlearn_gaussian =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red"))
+
+    print(colored("CONF. MATRIX: hmmlear_gaussian = \n " + str(model_hmmlearn_gaussian_confusion_matrix), "red"))
+
 
     test_means_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.means_).float().to(device)
     test_covars_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.covars_).float().to(device)
