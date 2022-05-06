@@ -950,6 +950,19 @@ def main():
     )
 
     print(
+        "logprob_hmmlearn_gaussian_trained =\t\t",
+        logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
+    )
+    print(
+        "logprob_torch_trained_continuous1= \t\t",
+        logprob_torch_trained_continuous1 / obs_test.shape[0],
+    )
+    print(
+        "logprob_flow_trained_continuous1= \t\t",
+        logprob_flow_trained_continuous / obs_test.shape[0],
+    )
+
+    print(
         colored(
             "CONF. MATRIX: flow = \n " + str(model_hmmlearn_gaussian_confusion_matrix),
             "red",
