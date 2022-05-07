@@ -19,7 +19,7 @@ import CNF_lib.spectral_norm as spectral_norm
 from CNF_lib.layers.odefunc import divergence_bf, divergence_approx
 
 
-def compute_stat_distr(A):
+def compute_stat_distr(A: np.ndarray):
     evals, evecs = np.linalg.eig(A.T)
     evec1 = evecs[:, np.isclose(evals, 1)]
     stat_distr = evec1 / evec1.sum()
@@ -28,9 +28,9 @@ def compute_stat_distr(A):
     return stat_distr
 
 
-def compute_joint_trans_matrix(A):
-    stat_distr = compute_stat_distr(A)
-    stat_distr_diag = torch.diag(torch.tensor(stat_distr))
+def compute_joint_trans_matrix(A: torch.Tensor, device='cpu'):
+    stat_distr = compute_stat_distr(A.cpu().numpy())
+    stat_distr_diag = torch.diag(torch.tensor(stat_distr, device=device))
     # S=torch.matmul(A,stat_distr_diag)
     S = torch.matmul(stat_distr_diag, A)
     #    S=S/torch.sum(S)

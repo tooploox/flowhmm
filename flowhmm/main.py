@@ -1,6 +1,7 @@
 import argparse
 import os
 import pickle
+from dataclasses import asdict
 from typing import Optional, Dict
 
 import numpy as np
@@ -9,6 +10,7 @@ import polyaxon
 import polyaxon.tracking
 import scipy.stats
 import torch
+import wandb
 from hmmlearn.hmm import GaussianHMM, GMMHMM
 from icecream import ic
 from matplotlib import pyplot as plt
@@ -60,7 +62,11 @@ def ParseArguments():
         default="examples/SYNTHETIC_1B_1U_1G_v2.yaml",
         help="Path to example YAML config file",
     )
-    parser.add_argument("--show_plots", default="yes", type=str, help="Show plots?")
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Whether to show plots after the training.",
+    )
     parser.add_argument(
         "--nr_epochs", default=10, type=int, required=False, help="nr of epochs"
     )
@@ -141,6 +147,12 @@ def ParseArguments():
     parser.add_argument("--polyaxon", type=bool, default=False)
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
+
+    parser.add_argument(
+        "--use_wandb_logging",
+        action="store_true",
+        help="Whether to log results to wandb",
+    )
     args = parser.parse_args()
     return args
 
@@ -194,17 +206,25 @@ def compute_pdf_matrix(distributions, grid):
 
 def main():
     args = ParseArguments()
+
+    wandb_logging = args.use_wandb_logging
+
     ic(args)
+
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
     set_seed(args.seed)
     example_config = load_example(args.example_yaml)
 
+    if wandb_logging:
+        wandb.init(entity="tooploox-ai", project="flow-hmm", config=args, group=args.example_yaml, name=args.example_yaml)
+        wandb.config["example_config"] = example_config._asdict()
+
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    show_plots = args.show_plots == "yes"
+    show_plots = args.show_plots
     nr_epochs = args.nr_epochs
     nr_epochs_torch = args.nr_epochs_torch
     n_mix = args.n_mix
@@ -307,11 +327,8 @@ def main():
     # SYNTHETIC DATASETS
     elif example_config.data_type == "synthetic":
 
-        #  some examples: real nr of hidden states: nr_hidden_states,
-        #  but we test on nr_hidden_states_train
         L = (
-            example_config.nr_hidden_states_train
-            or example_config.nr_hidden_states
+            example_config.nr_hidden_states
             or len(example_config.hidden_states_distributions)
         )
 
@@ -372,10 +389,18 @@ def main():
         else:
             raise ValueError(f"Unknown grid_strategy={grid_strategy}")
 
-        ic(grid)
+        ic(grid, n, L, m)
         polyaxon.tracking.log_inputs(n=n)
         polyaxon.tracking.log_inputs(L=L)
         polyaxon.tracking.log_inputs(m=m)
+        if wandb_logging:
+            wandb.log(
+                {
+                    "n": n,
+                    "T": n,
+                    "L": L,
+                    "m": m
+                })
 
         grid_labels = list(range(m))
         grid_large = np.linspace(np.min(grid), np.max(grid), m * 10)
@@ -492,7 +517,7 @@ def main():
 
     A_gauss = model1D_hmmlearn_gaussian_trained.transmat_
     mu_gauss = compute_stat_distr(A_gauss)
-    S_gauss = torch.tensor(np.dot(np.diag(mu_gauss), A_gauss)).to(device)
+    S_gauss = torch.tensor(np.dot(np.diag(mu_gauss), A_gauss), device=device)
 
     means1d_hat_init = torch.nn.Parameter(
         torch.rand(L2) * (np.max(grid) - np.min(grid))
@@ -512,12 +537,12 @@ def main():
     )
 
     P_torch_init_large = model_hmm_nmf_torch.compute_P_torch(
-        torch.tensor(grid_large).to(device), normalize=False
+        torch.tensor(grid_large, device=device), normalize=False
     )
 
     print(colored("Fitting model_hmm_nmf_torch ... ", "yellow"))
     model_hmm_nmf_torch.fit(
-        torch.Tensor(grid).to(device),
+        torch.tensor(grid, device=device),
         obs_train_grid_labels.reshape(-1),
         lr=lrate,
         nr_epochs=nr_epochs_torch,
@@ -525,7 +550,7 @@ def main():
     print(colored("DONE (fitting model_hmm_nmf_torch) ", "yellow"))
 
     P_torch_trained_large = model_hmm_nmf_torch.compute_P_torch(
-        torch.tensor(grid_large).to(device), normalize=False
+        torch.tensor(grid_large, device=device), normalize=False
     )
 
     Shat_un_init = torch.nn.Parameter(torch.ones(L2, L2)).to(device)
@@ -559,7 +584,7 @@ def main():
     # model_hmm_nmf_torch_flow.train()
     if training_type == "Q_training":
         model_hmm_nmf_torch_flow.fit(
-            torch.Tensor(grid).to(device),
+            torch.tensor(grid, device=device),
             obs_train_grid_labels.reshape(-1),
             lr=lrate,
             nr_epochs=nr_epochs,
@@ -567,7 +592,7 @@ def main():
         )
     if training_type == "EM":
         model_hmm_nmf_torch_flow.fit_EM(
-            torch.Tensor(obs_train).float().to(device),
+            torch.tensor(obs_train, device=device).float(),
             lr=lrate,
             nr_epochs=nr_epochs,
             display_info_every_step=1,
@@ -577,11 +602,11 @@ def main():
     print(colored("DONE (fitting model_hmm_nmf_torch_flow) ", "yellow"))
 
     P_torch_flow_trained_large = model_hmm_nmf_torch_flow.compute_P_torch(
-        torch.tensor(grid_large).to(device), normalize=False
+        torch.tensor(grid_large, device=device), normalize=False
     )
 
     P_torch_flow_trained_large_norm = model_hmm_nmf_torch_flow.compute_P_torch(
-        torch.tensor(grid_large).to(device), normalize=True
+        torch.tensor(grid_large, device=device), normalize=True
     )
 
     if show_plots:
@@ -648,7 +673,8 @@ def main():
 
     S_GMMHMM_list = [
         compute_joint_trans_matrix(
-            torch.tensor(model1D_hmmlearn_gmmhmm_trained_models[i].transmat_)
+            torch.tensor(model1D_hmmlearn_gmmhmm_trained_models[i].transmat_, device=device),
+            device=device
         )
         for i in np.arange(len(B_large_GMMHMM_list))
     ]
@@ -727,17 +753,17 @@ def main():
 
         MAD_gauss = compute_MAD(
             S_orig.to(device),
-            torch.tensor(B_orig_large).to(device),
+            torch.tensor(B_orig_large, device=device),
             S_gauss,
-            torch.tensor(B_large_GaussianHMM.T).to(device),
+            torch.tensor(B_large_GaussianHMM.T, device=device),
         )
 
         MADs_GMMHMM_list = [
             compute_MAD(
-                S_orig.float().to(device),
-                torch.tensor(B_orig_large).float().to(device),
-                S_GMMHMM_list[i].float().to(device),
-                torch.tensor(B_large_GMMHMM_list[i].T).to(device).float().to(device),
+                S_orig.to(device),
+                torch.tensor(B_orig_large, device=device),
+                S_GMMHMM_list[i],
+                torch.tensor(B_large_GMMHMM_list[i].T, device=device),
             )
             for i in np.arange(len(B_large_GMMHMM_list))
         ]
@@ -748,13 +774,13 @@ def main():
 
         MAD_torch = compute_MAD(
             S_orig.to(device),
-            torch.tensor(B_orig_large).to(device),
+            torch.tensor(B_orig_large, device=device),
             model_hmm_nmf_torch.get_S(),
             P_torch_trained_large,
         )
         MAD_torch_flow = compute_MAD(
             S_orig.to(device),
-            torch.tensor(B_orig_large).to(device),
+            torch.tensor(B_orig_large, device=device),
             model_hmm_nmf_torch_flow.get_S(),
             P_torch_flow_trained_large,
         )
@@ -885,6 +911,9 @@ def main():
                     "red",
                 )
             )
+            if wandb_logging:
+                wandb.log({"dtv-G": np.mean(total_vars_GaussianHMM_trained)})
+
             polyaxon.tracking.log_outputs(
                 total_vars_GaussianHMM_trained=np.mean(
                     total_vars_GaussianHMM_trained
@@ -925,6 +954,9 @@ def main():
                     "red",
                 )
             )
+            if wandb_logging:
+                wandb.log({"dtv-F": np.mean(total_vars_torch_flow_trained)})
+
             polyaxon.tracking.log_outputs(
                 total_vars_torch_flow_trained=np.mean(
                     total_vars_torch_flow_trained
@@ -941,6 +973,9 @@ def main():
                         "red",
                     )
                 )
+                if wandb_logging:
+                    wandb.log({f"dtv-G{i}": total_vars_means_GMMHMM_trained[nr]})
+
 
         else:
             total_vars_GaussianHMM_trained = -1
@@ -1013,6 +1048,11 @@ def main():
             "red",
         )
     )
+
+    if wandb_logging:
+        wandb.log({"logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained / n_test})
+        wandb.log({"G": logprob_hmmlearn_gaussian_trained / n_test})
+
     print(
         colored(
             "logprob_hmmlearn_gmmhmm_trained =\t\t"
@@ -1036,6 +1076,8 @@ def main():
             "red",
         )
     )
+    if wandb_logging:
+        wandb.log({"F": logprob_flow_trained_continuous / n_test})
 
     for nr, i in enumerate(n_mix_list):
         print(
@@ -1047,6 +1089,8 @@ def main():
                 "red",
             )
         )
+        if wandb_logging:
+            wandb.log({f"G{i}": logprob_hmmlearn_gmmhmm_trained_models[nr] / n_test})
 
     if output_file is not None:
         data_to_save = {
@@ -1093,6 +1137,7 @@ def main():
 
     if show_plots:
         plt.show()
+
 
 
 if __name__ == "__main__":
