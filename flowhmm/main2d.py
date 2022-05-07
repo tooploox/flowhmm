@@ -786,9 +786,9 @@ def main():
     )
     test_cholesky_trained = torch.zeros(test_covars_trained.shape).float().to(device)
 
-    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
+    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_, device=device)
 
-    S_trained = compute_joint_trans_matrix(A_trained)
+    S_trained = compute_joint_trans_matrix(A_trained, device=device)
     S_un_trained = torch.log(S_trained).float().to(device)
 
     for i in np.arange(test_covars_trained.shape[0]):
