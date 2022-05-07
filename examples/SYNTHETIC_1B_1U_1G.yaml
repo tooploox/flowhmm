@@ -3,8 +3,6 @@
 data_type: synthetic    # DATA_TYPE = "SYNTHETIC"  <- one can give lower or upper case
 
 nr_hidden_states: 3         # L=3 (Example 2a) or L=2 (Example 2b) -- real nr of hidden states
-#nr_hidden_states_train: 2   # train model using this many hidden states
-
 
 hidden_states_distributions: #
   - {name: beta, params: {a: 7.0, b: 1.1}}
