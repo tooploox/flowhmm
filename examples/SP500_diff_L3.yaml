@@ -7,7 +7,7 @@ dataset:
   #filepath: data_upload/1.csv.gz # 162501 rows
   #filepath: /home/peyo/repos/DeepHMMFlow/data/real/daily-min-temperatures.csv # 162501 rows
   #filepath: /home/peyo/repos/DeepHMMFlow/data/real/SP500/SP500.csv
-  filepath: /home/peyo/repos/flowhmm/data/real/SP500/SP500.csv
+  filepath: /home/maciej/PycharmProjects/flowhmm/data/real/SP500/SP500.csv
   load_args:
     header: 0  # None
     compression: #gzip

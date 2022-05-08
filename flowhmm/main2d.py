@@ -891,6 +891,18 @@ def main():
     print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1/obs_test.shape[0])
     print("logprob_flow_trained_continuous1= \t\t", logprob_flow_trained_continuous/obs_test.shape[0])
 
+    model_flow_hidden_states_test_predicted, _ , _ = model_hmm_nmf_torch_flow_multivariate.viterbi_log(obs_test)
+    model_flow_hidden_states_test_predicted = model_flow_hidden_states_test_predicted.detach().cpu().numpy()
+    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(hidden_states_test, model_flow_hidden_states_test_predicted)
+    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(hidden_states_test, model_flow_hidden_states_test_predicted)
+
+    print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
+    print(
+        colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red"))
+
+    print(colored("CONF. MATRIX: flow = \n " + str(model_hmmlearn_gaussian_confusion_matrix), "red"))
+
+
     if show_plots:
         if add_noise:
             print("Add noise var: ", noise_var)

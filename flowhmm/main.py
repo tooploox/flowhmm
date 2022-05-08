@@ -681,10 +681,10 @@ def main():
         )
 
         MADs_GMMHMM_list = [compute_MAD(
-            S_orig.to(device),
-            torch.tensor(B_orig_large).to(device),
-            S_GMMHMM_list[i],
-            torch.tensor(B_large_GMMHMM_list[i].T).to(device))
+            S_orig.float().to(device),
+            torch.tensor(B_orig_large).float().to(device),
+            S_GMMHMM_list[i].float().to(device),
+            torch.tensor(B_large_GMMHMM_list[i].T).to(device).float().to(device))
             for i in np.arange(len(B_large_GMMHMM_list))
         ]
 

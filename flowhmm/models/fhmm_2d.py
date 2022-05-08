@@ -3,6 +3,7 @@ from typing import Tuple
 
 import numpy as np
 import polyaxon.tracking
+import random
 import torch
 from hmmlearn.hmm import MultinomialHMM
 from icecream import ic
@@ -586,6 +587,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
         self.init_params = init_params
         self.loss_type = params.loss_type
         self.dim = dim
+        self.max_shape = 1000
         cnfs = []
         for k in range(self.L):
             cnfs.append(build_model_tabular(params, dim).to(self.device))
@@ -879,7 +881,12 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
 
         for it in range(init_epoch, nr_epochs):
             optimizer.zero_grad()
-            loss = -1.0 * self.continuous_score(observations, detach=False)
+            if observations.shape[0] > self.max_shape:
+                n = random.randint(0, observations.shape[0]-self.max_shape)
+                oservations_temp = observations[n: n + self.max_shape]
+            else:
+                oservations_temp = observations
+            loss = -1.0 * self.continuous_score(oservations_temp, detach=False)
             loss.backward(retain_graph=True)
             optimizer.step()
             loss_numpy = loss.cpu().detach().numpy()
@@ -970,6 +977,61 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                     ",\t loss: ",
                     np.round(loss_numpy, 6),
                 )
+
+    def viterbi_log(self, observations):
+        """Viterbi algorithm (log variant) for solving the uncovering problem
+
+        Notebook: C5/C5S3_Viterbi.ipynb
+
+        Args:
+            A (np.ndarray): State transition probability matrix of dimension I x I
+            C (np.ndarray): Initial state distribution  of dimension I
+            B (np.ndarray): Output probability matrix of dimension I x K
+            O (np.ndarray): Observation sequence of length N
+
+        Returns:
+            S_opt (np.ndarray): Optimal state sequence of length N
+            D_log (np.ndarray): Accumulated log probability matrix
+            E (np.ndarray): Backtracking matrix
+        """
+        x_all = observations.squeeze()
+        N = x_all.shape[0]  # Length of observation sequence
+        # Initialize D and E matrices
+        D_log = torch.zeros(self.L, N).to(self.device)
+        E = torch.zeros((self.L, N - 1)).to(self.device)
+        log_state_priors = torch.nn.functional.log_softmax(
+            torch.tensor(self.get_mu()).to(self.device), dim=0
+        )
+        log_probs = []
+        for k in range(self.L):
+            x_tensor = torch.tensor(x_all).float().to(self.device)
+            y, delta_log_py = self.cnfs[k](
+                x_tensor, torch.zeros(x_all.shape[0], 1).to(self.device)
+            )
+            log_py = standard_normal_logprob(y).sum(1)
+            delta_log_py = delta_log_py.sum(1)
+            log_px = log_py - delta_log_py
+            log_probs.append(log_px)
+        emt = torch.stack([log_prob for log_prob in log_probs]).T
+        D_log[:, 0] = log_state_priors + emt[0]
+
+        # Compute D and E in a nested loop
+        S = self.get_S()
+        A = S / torch.sum(S, axis=1).reshape(-1, 1)
+        log_transition_matrix = torch.log(A)
+        for n in range(1, N):
+            for i in range(self.L):
+                temp_sum = log_transition_matrix[:, i] + D_log[:, n - 1]
+                D_log[i, n] = torch.max(temp_sum) + emt[n, i]
+                E[i, n - 1] = torch.argmax(temp_sum)
+
+        # Backtracking
+        S_opt = torch.zeros(N).to(self.device)
+        S_opt[-1] = torch.argmax(D_log[:, -1])
+        for n in range(N - 2, -1, -1):
+            S_opt[n] = E[int(S_opt[n + 1]), n]
+
+        return S_opt, D_log, E
 
 
 class ListModule(torch.nn.Module):

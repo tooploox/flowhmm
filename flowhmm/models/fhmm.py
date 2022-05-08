@@ -1,7 +1,7 @@
 import os.path
 import random
 from typing import Tuple
-
+import time
 import numpy as np
 import polyaxon.tracking
 import torch
@@ -741,8 +741,9 @@ class HMM_NMF_FLOW(torch.nn.Module):
             best_loss = checkpoint["loss"]
             print(f"Restored after epoch={init_epoch}, loss={best_loss:.6f}")
             init_epoch += 1
-
+        diff_times = []
         for it in range(init_epoch, nr_epochs):
+            start = time.time()
             optimizer.zero_grad()
             Shat = self.get_S()
             Q_torch = self.compute_Q_torch(grid, Shat, self.add_noise)
@@ -782,6 +783,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
             loss.backward(retain_graph=True)
             optimizer.step()
             loss_numpy = loss.cpu().detach().numpy()
+            diff_times.append(time.time() - start)
             if it < 50 or np.mod(it, display_info_every_step) == 0:
                 print(
                     "Epoch = ",
@@ -804,7 +806,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
                     optimizer=optimizer,
                 )
 
-        return True
+        return diff_times
 
     def load_weights(self, checkpoint_path) -> Tuple[int, float]:
         """
@@ -886,8 +888,9 @@ class HMM_NMF_FLOW(torch.nn.Module):
             best_loss = checkpoint["loss"]
             print(f"Restored after epoch={init_epoch}, loss={best_loss:.6f}")
             init_epoch += 1
-
+        diff_times = []
         for it in range(init_epoch, nr_epochs):
+            start = time.time()
             optimizer.zero_grad()
             if observations.shape[0] > self.max_shape:
                 n = random.randint(0, observations.shape[0]-self.max_shape)
@@ -898,6 +901,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
             loss.backward(retain_graph=True)
             optimizer.step()
             loss_numpy = loss.cpu().detach().numpy()
+            diff_times.append(time.time() - start)
             if it < 50 or np.mod(it, display_info_every_step) == 0:
                 print(
                     "Epoch = ",
@@ -920,4 +924,4 @@ class HMM_NMF_FLOW(torch.nn.Module):
                     optimizer=optimizer,
                 )
 
-        return True
+        return diff_times
