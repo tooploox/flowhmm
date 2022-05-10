@@ -216,9 +216,15 @@ def main():
     set_seed(args.seed)
     example_config = load_example(args.example_yaml)
 
-    if wandb_logging:
-        wandb.init(entity="tooploox-ai", project="flow-hmm", config=args, group=args.example_yaml, name=args.example_yaml)
-        wandb.config["example_config"] = example_config._asdict()
+    wandb.init(
+        mode="online" if wandb_logging else "offline",
+        entity="tooploox-ai",
+        project="flow-hmm",
+        config=args,
+        group=args.example_yaml,
+        name=args.example_yaml
+    )
+    wandb.config["example_config"] = example_config._asdict()
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
@@ -393,14 +399,14 @@ def main():
         polyaxon.tracking.log_inputs(n=n)
         polyaxon.tracking.log_inputs(L=L)
         polyaxon.tracking.log_inputs(m=m)
-        if wandb_logging:
-            wandb.log(
-                {
-                    "n": n,
-                    "T": n,
-                    "L": L,
-                    "m": m
-                })
+
+        wandb.log(
+            {
+                "n": n,
+                "T": n,
+                "L": L,
+                "m": m
+            })
 
         grid_labels = list(range(m))
         grid_large = np.linspace(np.min(grid), np.max(grid), m * 10)
@@ -911,8 +917,8 @@ def main():
                     "red",
                 )
             )
-            if wandb_logging:
-                wandb.log({"dtv-G": np.mean(total_vars_GaussianHMM_trained)})
+
+            wandb.log({"dtv-G": np.mean(total_vars_GaussianHMM_trained)})
 
             polyaxon.tracking.log_outputs(
                 total_vars_GaussianHMM_trained=np.mean(
@@ -954,8 +960,8 @@ def main():
                     "red",
                 )
             )
-            if wandb_logging:
-                wandb.log({"dtv-F": np.mean(total_vars_torch_flow_trained)})
+
+            wandb.log({"dtv-F": np.mean(total_vars_torch_flow_trained)})
 
             polyaxon.tracking.log_outputs(
                 total_vars_torch_flow_trained=np.mean(
@@ -973,8 +979,8 @@ def main():
                         "red",
                     )
                 )
-                if wandb_logging:
-                    wandb.log({f"dtv-G{i}": total_vars_means_GMMHMM_trained[nr]})
+
+                wandb.log({f"dtv-G{i}": total_vars_means_GMMHMM_trained[nr]})
 
 
         else:
@@ -1049,9 +1055,8 @@ def main():
         )
     )
 
-    if wandb_logging:
-        wandb.log({"logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained / n_test})
-        wandb.log({"G": logprob_hmmlearn_gaussian_trained / n_test})
+    wandb.log({"logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained / n_test})
+    wandb.log({"G": logprob_hmmlearn_gaussian_trained / n_test})
 
     print(
         colored(
@@ -1076,8 +1081,8 @@ def main():
             "red",
         )
     )
-    if wandb_logging:
-        wandb.log({"F": logprob_flow_trained_continuous / n_test})
+
+    wandb.log({"F": logprob_flow_trained_continuous / n_test})
 
     for nr, i in enumerate(n_mix_list):
         print(
