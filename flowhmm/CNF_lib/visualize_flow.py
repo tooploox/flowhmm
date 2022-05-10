@@ -83,7 +83,7 @@ def plt_flow_density(
 
     z, delta_logp = [], []
     inds = torch.arange(0, x.shape[0]).to(torch.int64)
-    for ii in torch.split(inds, int(memory ** 2)):
+    for ii in torch.split(inds, int(memory**2)):
         z_, delta_logp_ = inverse_transform(x[ii], zeros[ii])
         z.append(z_)
         delta_logp.append(delta_logp_)
@@ -107,7 +107,7 @@ def plt_flow_samples(
     z = prior_sample(npts * npts, 2).type(torch.float32).to(device)
     zk = []
     inds = torch.arange(0, z.shape[0]).to(torch.int64)
-    for ii in torch.split(inds, int(memory ** 2)):
+    for ii in torch.split(inds, int(memory**2)):
         zk.append(transform(z[ii]))
     zk = torch.cat(zk, 0).cpu().numpy()
     ax.hist2d(zk[:, 0], zk[:, 1], range=[[LOW_X, HIGH_X], [LOW_Y, HIGH_Y]], bins=npts)

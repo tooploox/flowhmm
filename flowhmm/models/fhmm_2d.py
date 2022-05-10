@@ -87,7 +87,7 @@ def nnmf_hmm_discrete(observations, m, add_prior=False):
         Q[observations[i - 1], observations[i]] += 1
 
     if add_prior:
-        Q /= len(observations) - 1 + m * m * 0.1 # ??
+        Q /= len(observations) - 1 + m * m * 0.1  # ??
     else:
         Q /= len(observations)
     return Q
@@ -120,7 +120,8 @@ def compute_P_torch(
 
     if add_noise:  #:torch.normal(mean=torch.zeros(5), std=torch.ones(5)*0.1)
         grid = grid + torch.normal(
-            mean=torch.zeros((len(grid), 2), device=device), std=torch.ones((len(grid), 2), device=device) * 0.1
+            mean=torch.zeros((len(grid), 2), device=device),
+            std=torch.ones((len(grid), 2), device=device) * 0.1,
         )
     # grid = grid + torch.normal(0, 0.1, size=len(grid)).to(device)
 
@@ -128,7 +129,7 @@ def compute_P_torch(
 
         Cholesky_L = torch.tril(chol_param)
 
-        #cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
+        # cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
 
         # dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
         # dist_normal = td.MultivariateNormal(loc=mean, covariance_matrix=cov_matrix)
@@ -386,7 +387,9 @@ class HMM_NMF_multivariate(torch.nn.Module):
         log_alpha = torch.zeros(x_all.shape[0], self.L).to(self.device)
         log_state_priors = torch.log(torch.tensor(self.get_mu()).to(self.device))
         x_tensor = torch.tensor(x_all).float().to(self.device)
-        for i, (mean, chol_param) in enumerate(zip(self.means1d_hat, self.cholesky_L_params)):
+        for i, (mean, chol_param) in enumerate(
+            zip(self.means1d_hat, self.cholesky_L_params)
+        ):
             Cholesky_L = torch.tril(chol_param)
             # TMP:
             # cov_matrix = torch.matmul(Cholesky_L, Cholesky_L.T)
@@ -571,6 +574,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
     """
     Hidden Markov Model -- NMF --   discrete...
     """
+
     def __init__(self, Shat_un_init, m, mm, params, dim=1, init_params=None):
         super(HMM_NMF_FLOW_multivariate, self).__init__()
 
@@ -624,9 +628,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                 self.device
             )
         for i in range(self.L):
-            y, delta_log_py = self.cnfs[i](
-                grid, torch.zeros(grid.size(0), 1).to(grid)
-            )
+            y, delta_log_py = self.cnfs[i](grid, torch.zeros(grid.size(0), 1).to(grid))
             log_py = standard_normal_logprob(y).sum(1)
             delta_log_py = delta_log_py.sum(1)
             log_px = log_py - delta_log_py
@@ -760,7 +762,10 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
             for k in range(grid.shape[0]):
                 Q_empir.append(
                     np.expand_dims(
-                        nnmf_hmm_discrete(observation_labels[k], self.mm, add_prior=True), axis=0
+                        nnmf_hmm_discrete(
+                            observation_labels[k], self.mm, add_prior=True
+                        ),
+                        axis=0,
                     )
                 )
                 # if self.add_noise:
@@ -854,7 +859,8 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
 
         return True
 
-    def fit_EM(self,
+    def fit_EM(
+        self,
         observations,
         nr_epochs=5000,
         lr=0.1,
@@ -882,8 +888,8 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
         for it in range(init_epoch, nr_epochs):
             optimizer.zero_grad()
             if observations.shape[0] > self.max_shape:
-                n = random.randint(0, observations.shape[0]-self.max_shape)
-                oservations_temp = observations[n: n + self.max_shape]
+                n = random.randint(0, observations.shape[0] - self.max_shape)
+                oservations_temp = observations[n : n + self.max_shape]
             else:
                 oservations_temp = observations
             loss = -1.0 * self.continuous_score(oservations_temp, detach=False)
@@ -913,7 +919,6 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                 )
 
         return True
-
 
     def load_weights(self, checkpoint_path) -> Tuple[int, float]:
         """

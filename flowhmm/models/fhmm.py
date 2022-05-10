@@ -26,7 +26,7 @@ def compute_MAD(
 
     Q2 = P2.matmul(S2.matmul(P2.T))
     r = P2.shape[1]
-    MAD = torch.sum(torch.abs(Q_orig - Q2)) / r ** 2
+    MAD = torch.sum(torch.abs(Q_orig - Q2)) / r**2
     return MAD.cpu().detach().numpy()
 
 
@@ -46,14 +46,14 @@ def compute_total_var_dist(B1, B2, grid_large):
         distr2 = distr2 / np.sum(distr2)
         B2_means[i] = np.sum(distr2 * grid_large)
 
-    #print("B1_means = ", B1_means)
-    #print("B2_means = ", B2_means)
+    # print("B1_means = ", B1_means)
+    # print("B2_means = ", B2_means)
 
     knn = KNeighborsClassifier(n_neighbors=1)
     knn.fit(B1_means.reshape(-1, 1), np.arange(L))
 
     ordering = knn.predict(B2_means.reshape(-1, 1))
-    #print("ordering=", ordering)
+    # print("ordering=", ordering)
 
     total_vars = np.zeros(L)
 
@@ -66,6 +66,7 @@ def compute_total_var_dist(B1, B2, grid_large):
         total_vars[state1] = np.sum(np.abs(distrA - distrB)) / 2
 
     return total_vars
+
 
 #
 # def compute_stat_distr(A):
@@ -441,7 +442,8 @@ class HMM_NMF(torch.nn.Module):
 
         return True
 
-    def fit_EM(self,
+    def fit_EM(
+        self,
         observations,
         nr_epochs=5000,
         lr=0.1,
@@ -864,13 +866,14 @@ class HMM_NMF_FLOW(torch.nn.Module):
                     np.round(loss_numpy, 6),
                 )
 
-    def fit_EM(self,
-               observations,
-               nr_epochs=5000,
-               lr=0.1,
-               display_info_every_step=50,
-               checkpoint_path=None,
-               ):
+    def fit_EM(
+        self,
+        observations,
+        nr_epochs=5000,
+        lr=0.1,
+        display_info_every_step=50,
+        checkpoint_path=None,
+    ):
 
         optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=0.0001)
         best_loss = np.inf
@@ -893,8 +896,8 @@ class HMM_NMF_FLOW(torch.nn.Module):
             start = time.time()
             optimizer.zero_grad()
             if observations.shape[0] > self.max_shape:
-                n = random.randint(0, observations.shape[0]-self.max_shape)
-                oservations_temp = observations[n: n + self.max_shape]
+                n = random.randint(0, observations.shape[0] - self.max_shape)
+                oservations_temp = observations[n : n + self.max_shape]
             else:
                 oservations_temp = observations
             loss = -1.0 * self.continuous_score(oservations_temp, detach=False)

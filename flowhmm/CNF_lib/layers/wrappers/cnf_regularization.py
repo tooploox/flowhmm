@@ -90,7 +90,7 @@ def jacobian_offdiag_frobenius_regularization_fn(x, logp, dx, dlogp, context):
         :, :: jac.shape[1]
     ]  # assumes jac is minibatch square, ie. (N, M, M).
     ss_offdiag = torch.sum(jac.view(jac.shape[0], -1) ** 2, dim=1) - torch.sum(
-        diagonal ** 2, dim=1
+        diagonal**2, dim=1
     )
     ms_offdiag = ss_offdiag / (diagonal.shape[1] * (diagonal.shape[1] - 1))
     return torch.mean(ms_offdiag)

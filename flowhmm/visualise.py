@@ -62,7 +62,7 @@ def ParseArguments():
         "-e",
         "--example_yaml",
         type=str,
-        #default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
+        # default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
         default="examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion.yaml",
         help="Path to example YAML config file",
     )
@@ -206,16 +206,15 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
         if distributions[current_state]["name"] == "gbm":
             params_r = distributions[current_state]["params"]["r"]
             params_sigma = distributions[current_state]["params"]["sigma"]
-            params_mu=params_r -params_sigma**2/2
+            params_mu = params_r - params_sigma**2 / 2
             params_S0 = distributions[current_state]["params"]["S0"]
-            p_cov_matrix=np.array([[1,1/2],[1/2,1]])
-            p_means = np.array([0,0])
-            B05,B1=np.random.multivariate_normal(p_means , p_cov_matrix)
+            p_cov_matrix = np.array([[1, 1 / 2], [1 / 2, 1]])
+            p_means = np.array([0, 0])
+            B05, B1 = np.random.multivariate_normal(p_means, p_cov_matrix)
             S05 = params_S0 * np.exp(params_mu * 0.5 + params_sigma * B05)
             S1 = params_S0 * np.exp(params_mu * 1 + params_sigma * B1)
 
-            observations[k, :] = np.array([[S05,S1]])
-
+            observations[k, :] = np.array([[S05, S1]])
 
         current_state = np.random.choice(
             np.arange(n_states), 1, p=transmat[current_state, :].reshape(-1)
@@ -272,7 +271,6 @@ def main():
     polyaxon.tracking.log_inputs(args=args.__dict__)
 
     example_config = load_example(args.example_yaml)
-
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
@@ -411,13 +409,10 @@ def main():
 
         # new:
 
-
-
         ## ADDED: normalization
         obs_mean = np.mean(obs_train, axis=0)
-        obs_train=obs_train-obs_mean
-        obs_test=obs_test-obs_mean
-
+        obs_train = obs_train - obs_mean
+        obs_test = obs_test - obs_mean
 
         x_min = np.min(obs_train[:, 0])
         x_max = np.max(obs_train[:, 0])
@@ -436,9 +431,9 @@ def main():
         y_min3 = y_min + 0.2 * (y_max - x_min)
         y_max3 = y_max - 0.2 * (y_max - x_min)
 
-        ic(x_min,x_max,y_min,y_max)
-        ic(x_min2,x_max2,y_min2,y_max2)
-        ic(x_min3,x_max3,y_min3,y_max3)
+        ic(x_min, x_max, y_min, y_max)
+        ic(x_min2, x_max2, y_min2, y_max2)
+        ic(x_min3, x_max3, y_min3, y_max3)
 
         grid_strategy = example_config.grid_strategy
         # # grid_strategy = "uniform"
@@ -462,11 +457,10 @@ def main():
             grid_all = kmeans.cluster_centers_
 
         elif grid_strategy == "kmeans2":
-          #  mm = example_config.grid_size_all
+            #  mm = example_config.grid_size_all
             # tutaj robimy tak, ze osobno na x, osobno na y
 
-
-            m_k=m
+            m_k = m
             # m_k = int(m*0.8)
             # m_extra_left = int((m-m_k)/2)
             # m_extra_right = m-m_k-m_extra_left
@@ -504,8 +498,8 @@ def main():
             print("test")
         elif grid_strategy == "mixed":
 
-            m_half_uniform = int(m/2)
-            m_half_kmeans =  m-m_half_uniform
+            m_half_uniform = int(m / 2)
+            m_half_kmeans = m - m_half_uniform
 
             grid_uniform_x = np.linspace(x_min2, x_max2, m_half_uniform)
             grid_uniform_y = np.linspace(y_min2, y_max2, m_half_uniform)
@@ -529,10 +523,7 @@ def main():
             # grid_all[:,1]=grid_y
             mm = grid_all.shape[0]
 
-
-
             # half from kmeans, half from uniform
-
 
         # elif grid_strategy == "mixed":
         #     kmeans = KMeans(n_clusters=int(np.floor(m / 2)))
@@ -589,16 +580,14 @@ def main():
     x = obs_train[:, 0]
     y = obs_train[:, 1]
     sns.scatterplot(x=x, y=y, s=5, color=".15")
-    sns.histplot(x=x, y=y, bins=50, pthresh=.1, cmap="mako")
+    sns.histplot(x=x, y=y, bins=50, pthresh=0.1, cmap="mako")
     sns.kdeplot(x=x, y=y, levels=10, color="b", linewidths=1, fill=True, alpha=0.5)
 
     f, ax = plt.subplots(figsize=(6, 6))
     sns.kdeplot(x=x, y=y, levels=10, color="b", linewidths=1, fill=True, alpha=0.5)
 
-
     f, ax = plt.subplots(figsize=(6, 6))
-    sns.kdeplot(x=x, y=y,  fill=True, thresh=0, levels=100, cmap="mako")
-
+    sns.kdeplot(x=x, y=y, fill=True, thresh=0, levels=100, cmap="mako")
 
     # f, ax = plt.subplots(figsize=(6, 6))
     #
@@ -612,6 +601,7 @@ def main():
     # py.iplot(fig, filename='histogram_subplots')
 
     plt.show()
+
 
 if __name__ == "__main__":
     main()

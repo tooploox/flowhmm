@@ -98,7 +98,7 @@ NONLINEARITIES = {
     "softplus": nn.Softplus(),
     "elu": nn.ELU(),
     "swish": Swish(),
-    "square": Lambda(lambda x: x ** 2),
+    "square": Lambda(lambda x: x**2),
     "identity": Lambda(lambda x: x),
 }
 
@@ -540,7 +540,7 @@ NONLINEARITIES = {
     "softplus": nn.Softplus(),
     "elu": nn.ELU(),
     "swish": Swish(),
-    "square": Lambda(lambda x: x ** 2),
+    "square": Lambda(lambda x: x**2),
     "identity": Lambda(lambda x: x),
 }
 

@@ -59,7 +59,7 @@ def ParseArguments():
         "-e",
         "--example_yaml",
         type=str,
-        #default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
+        # default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
         default="examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion.yaml",
         help="Path to example YAML config file",
     )
@@ -186,12 +186,12 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
     moons_boolean = False
 
     for i in np.arange(len(distributions)):
-        if (distributions[i]['name']=="moon1" or distributions[i]['name']=="moon2"):
+        if distributions[i]["name"] == "moon1" or distributions[i]["name"] == "moon2":
             moons_boolean = True
-            j=i
+            j = i
 
     if moons_boolean:
-        XY, moon_class = make_moons(n_samples=2*n, noise=0.1)
+        XY, moon_class = make_moons(n_samples=2 * n, noise=0.1)
         XY_moon1 = XY[moon_class == 0]
         XY_moon2 = XY[moon_class == 1]
         moon1_next = 0
@@ -231,15 +231,15 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
         if distributions[current_state]["name"] == "gbm":
             params_r = distributions[current_state]["params"]["r"]
             params_sigma = distributions[current_state]["params"]["sigma"]
-            params_mu=params_r -params_sigma**2/2
+            params_mu = params_r - params_sigma**2 / 2
             params_S0 = distributions[current_state]["params"]["S0"]
-            p_cov_matrix=np.array([[1,1/2],[1/2,1]])
-            p_means = np.array([0,0])
-            B05,B1=np.random.multivariate_normal(p_means , p_cov_matrix)
+            p_cov_matrix = np.array([[1, 1 / 2], [1 / 2, 1]])
+            p_means = np.array([0, 0])
+            B05, B1 = np.random.multivariate_normal(p_means, p_cov_matrix)
             S05 = params_S0 * np.exp(params_mu * 0.5 + params_sigma * B05)
             S1 = params_S0 * np.exp(params_mu * 1 + params_sigma * B1)
 
-            observations[k, :] = np.array([[S05,S1]])
+            observations[k, :] = np.array([[S05, S1]])
 
         hidden_states[k] = current_state
         current_state = np.random.choice(
@@ -297,7 +297,6 @@ def main():
     polyaxon.tracking.log_inputs(args=args.__dict__)
 
     example_config = load_example(args.example_yaml)
-
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
@@ -440,13 +439,10 @@ def main():
 
         # new:
 
-
-
         ## ADDED: normalization
         obs_mean = np.mean(obs_train, axis=0)
-        obs_train=obs_train-obs_mean
-        obs_test=obs_test-obs_mean
-
+        obs_train = obs_train - obs_mean
+        obs_test = obs_test - obs_mean
 
         x_min = np.min(obs_train[:, 0])
         x_max = np.max(obs_train[:, 0])
@@ -465,9 +461,9 @@ def main():
         y_min3 = y_min + 0.2 * (y_max - x_min)
         y_max3 = y_max - 0.2 * (y_max - x_min)
 
-        ic(x_min,x_max,y_min,y_max)
-        ic(x_min2,x_max2,y_min2,y_max2)
-        ic(x_min3,x_max3,y_min3,y_max3)
+        ic(x_min, x_max, y_min, y_max)
+        ic(x_min2, x_max2, y_min2, y_max2)
+        ic(x_min3, x_max3, y_min3, y_max3)
 
         grid_strategy = example_config.grid_strategy
         # # grid_strategy = "uniform"
@@ -491,11 +487,10 @@ def main():
             grid_all = kmeans.cluster_centers_
 
         elif grid_strategy == "kmeans2":
-          #  mm = example_config.grid_size_all
+            #  mm = example_config.grid_size_all
             # tutaj robimy tak, ze osobno na x, osobno na y
 
-
-            m_k=m
+            m_k = m
             # m_k = int(m*0.8)
             # m_extra_left = int((m-m_k)/2)
             # m_extra_right = m-m_k-m_extra_left
@@ -533,8 +528,8 @@ def main():
             print("test")
         elif grid_strategy == "mixed":
 
-            m_half_uniform = int(m/2)
-            m_half_kmeans =  m-m_half_uniform
+            m_half_uniform = int(m / 2)
+            m_half_kmeans = m - m_half_uniform
 
             grid_uniform_x = np.linspace(x_min2, x_max2, m_half_uniform)
             grid_uniform_y = np.linspace(y_min2, y_max2, m_half_uniform)
@@ -558,10 +553,7 @@ def main():
             # grid_all[:,1]=grid_y
             mm = grid_all.shape[0]
 
-
-
             # half from kmeans, half from uniform
-
 
         # elif grid_strategy == "mixed":
         #     kmeans = KMeans(n_clusters=int(np.floor(m / 2)))
@@ -698,12 +690,14 @@ def main():
     )
 
     # Gauss TORCH
-    print("args.init_with_kmeans = ",args.init_with_kmeans )
-    #quit()
+    print("args.init_with_kmeans = ", args.init_with_kmeans)
+    # quit()
     if args.init_with_kmeans:
         kmeans = KMeans(n_clusters=L, n_init=10)
         kmeans.fit(obs_train_grid)
-        means1d_hat_init_2d = torch.tensor(kmeans.cluster_centers_, device=device).float()
+        means1d_hat_init_2d = torch.tensor(
+            kmeans.cluster_centers_, device=device
+        ).float()
         ic("Initialization with k-means", means1d_hat_init_2d)
 
     else:
@@ -731,10 +725,13 @@ def main():
     # a potem covariance_matrix = L*L^T (rozklad Choleskyego)
 
     # # (2 * torch.rand(L, 3, device=device) - 1) / 10
-    cholesky_L_params_init_2d = torch.stack([
-        #torch.tril((2*torch.rand(dim, dim, device=device)+1)/2) for _ in range(L)
-        torch.tril( torch.ones(dim, dim, device=device)/10) for _ in range(L)
-    ])
+    cholesky_L_params_init_2d = torch.stack(
+        [
+            # torch.tril((2*torch.rand(dim, dim, device=device)+1)/2) for _ in range(L)
+            torch.tril(torch.ones(dim, dim, device=device) / 10)
+            for _ in range(L)
+        ]
+    )
 
     ic(cholesky_L_params_init_2d)
     # Na przykład
@@ -754,31 +751,48 @@ def main():
     )
     model_hmmlearn_gaussian_trained_test.fit(obs_train)
 
-    model_hmmlearn_gaussian_hidden_states_test_predicted =model_hmmlearn_gaussian_trained_test.predict(obs_test)
+    model_hmmlearn_gaussian_hidden_states_test_predicted = (
+        model_hmmlearn_gaussian_trained_test.predict(obs_test)
+    )
 
-    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(hidden_states_test,model_hmmlearn_gaussian_hidden_states_test_predicted)
-    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(hidden_states_test,model_hmmlearn_gaussian_hidden_states_test_predicted)
+    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(
+        hidden_states_test, model_hmmlearn_gaussian_hidden_states_test_predicted
+    )
+    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(
+        hidden_states_test, model_hmmlearn_gaussian_hidden_states_test_predicted
+    )
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
     print(
-        colored("ACCURACY: hmmlearn_gaussian =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red"))
+        colored(
+            "ACCURACY: hmmlearn_gaussian =\t\t" + str(model_hmmlearn_gaussian_accuracy),
+            "red",
+        )
+    )
 
-    print(colored("CONF. MATRIX: hmmlear_gaussian = \n " + str(model_hmmlearn_gaussian_confusion_matrix), "red"))
+    print(
+        colored(
+            "CONF. MATRIX: hmmlear_gaussian = \n "
+            + str(model_hmmlearn_gaussian_confusion_matrix),
+            "red",
+        )
+    )
 
-
-    test_means_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.means_).float().to(device)
-    test_covars_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.covars_).float().to(device)
+    test_means_trained = (
+        torch.tensor(model_hmmlearn_gaussian_trained_test.means_).float().to(device)
+    )
+    test_covars_trained = (
+        torch.tensor(model_hmmlearn_gaussian_trained_test.covars_).float().to(device)
+    )
     test_cholesky_trained = torch.zeros(test_covars_trained.shape).float().to(device)
 
-    A_trained=torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
-
-
+    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
 
     S_trained = compute_joint_trans_matrix(A_trained)
     S_un_trained = torch.log(S_trained).float().to(device)
 
     for i in np.arange(test_covars_trained.shape[0]):
-        test_cholesky_trained[i]=torch.linalg.cholesky(test_covars_trained[i])
+        test_cholesky_trained[i] = torch.linalg.cholesky(test_covars_trained[i])
 
     model_hmm_nmf_torch_multivariate_test = HMM_NMF_multivariate(
         Shat_un_init=S_un_trained,
@@ -792,21 +806,34 @@ def main():
         loss_type=loss_type,
     )
 
-    logprob_hmmlearn_gaussian_trained_test = model_hmmlearn_gaussian_trained_test.score(obs_test)
+    logprob_hmmlearn_gaussian_trained_test = model_hmmlearn_gaussian_trained_test.score(
+        obs_test
+    )
 
     A_stat_distr = compute_stat_distr(A_trained)
     model_hmmlearn_gaussian_trained_test.startprob_ = A_stat_distr
 
-    logprob_hmmlearn_gaussian_trained_test_v2 = model_hmmlearn_gaussian_trained_test.score(obs_test)
+    logprob_hmmlearn_gaussian_trained_test_v2 = (
+        model_hmmlearn_gaussian_trained_test.score(obs_test)
+    )
 
-    logprob_torch_trained_continuous_test = model_hmm_nmf_torch_multivariate_test.continuous_score(obs_test)
-    print("logprob_hmmlearn_gaussian_trained_test = \t", logprob_hmmlearn_gaussian_trained_test)
-    print("logprob_hmmlearn_gaussian_trained_test2 = \t", logprob_hmmlearn_gaussian_trained_test_v2)
-    print("logprob_torch_trained_continuous_test = \t", logprob_torch_trained_continuous_test)
+    logprob_torch_trained_continuous_test = (
+        model_hmm_nmf_torch_multivariate_test.continuous_score(obs_test)
+    )
+    print(
+        "logprob_hmmlearn_gaussian_trained_test = \t",
+        logprob_hmmlearn_gaussian_trained_test,
+    )
+    print(
+        "logprob_hmmlearn_gaussian_trained_test2 = \t",
+        logprob_hmmlearn_gaussian_trained_test_v2,
+    )
+    print(
+        "logprob_torch_trained_continuous_test = \t",
+        logprob_torch_trained_continuous_test,
+    )
     print("test")
     # TEST END
-
-
 
     model_hmm_nmf_torch_multivariate = HMM_NMF_multivariate(
         Shat_un_init=Shat_un_init,
@@ -861,7 +888,7 @@ def main():
     model_hmm_nmf_torch_flow_multivariate = HMM_NMF_FLOW_multivariate(
         Shat_un_init=Shat_un_init, m=m, mm=mm, dim=grid_all.shape[1], params=args
     )
-    if training_type == 'Q_training':
+    if training_type == "Q_training":
         model_hmm_nmf_torch_flow_multivariate.fit(
             torch.Tensor(grid_all).to(device),
             obs_train_grid_labels.reshape(-1),
@@ -869,7 +896,7 @@ def main():
             nr_epochs=nr_epochs,
             display_info_every_step=1,
         )
-    if training_type == 'EM':
+    if training_type == "EM":
         model_hmm_nmf_torch_flow_multivariate.fit_EM(
             torch.Tensor(obs_train).float().to(device),
             lr=lrate,
@@ -879,29 +906,55 @@ def main():
     model_hmm_nmf_torch_flow_multivariate.eval()
     model_hmm_nmf_torch_multivariate.eval()
     # print("Computing model_hmm_nmf_torch.continuous_score(obs_test) .... ")
-    logprob_torch_trained_continuous1 = model_hmm_nmf_torch_multivariate.continuous_score(obs_test)
+    logprob_torch_trained_continuous1 = (
+        model_hmm_nmf_torch_multivariate.continuous_score(obs_test)
+    )
     # logprob_torch_trained_continuous2 = model_hmm_nmf_torch.continuous_score(obs_test_grid_labels)
 
     print("Computing model_hmm_nmf_torch_flow.continuous_score(obs_test) .... ")
-    logprob_flow_trained_continuous = model_hmm_nmf_torch_flow_multivariate.continuous_score(
-        obs_test
+    logprob_flow_trained_continuous = (
+        model_hmm_nmf_torch_flow_multivariate.continuous_score(obs_test)
     )
 
-    print("logprob_hmmlearn_gaussian_trained =\t\t", logprob_hmmlearn_gaussian_trained/obs_test.shape[0])
-    print("logprob_torch_trained_continuous1= \t\t", logprob_torch_trained_continuous1/obs_test.shape[0])
-    print("logprob_flow_trained_continuous1= \t\t", logprob_flow_trained_continuous/obs_test.shape[0])
+    print(
+        "logprob_hmmlearn_gaussian_trained =\t\t",
+        logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
+    )
+    print(
+        "logprob_torch_trained_continuous1= \t\t",
+        logprob_torch_trained_continuous1 / obs_test.shape[0],
+    )
+    print(
+        "logprob_flow_trained_continuous1= \t\t",
+        logprob_flow_trained_continuous / obs_test.shape[0],
+    )
 
-    model_flow_hidden_states_test_predicted, _ , _ = model_hmm_nmf_torch_flow_multivariate.viterbi_log(obs_test)
-    model_flow_hidden_states_test_predicted = model_flow_hidden_states_test_predicted.detach().cpu().numpy()
-    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(hidden_states_test, model_flow_hidden_states_test_predicted)
-    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(hidden_states_test, model_flow_hidden_states_test_predicted)
+    (
+        model_flow_hidden_states_test_predicted,
+        _,
+        _,
+    ) = model_hmm_nmf_torch_flow_multivariate.viterbi_log(obs_test)
+    model_flow_hidden_states_test_predicted = (
+        model_flow_hidden_states_test_predicted.detach().cpu().numpy()
+    )
+    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(
+        hidden_states_test, model_flow_hidden_states_test_predicted
+    )
+    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(
+        hidden_states_test, model_flow_hidden_states_test_predicted
+    )
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
     print(
-        colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red"))
+        colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red")
+    )
 
-    print(colored("CONF. MATRIX: flow = \n " + str(model_hmmlearn_gaussian_confusion_matrix), "red"))
-
+    print(
+        colored(
+            "CONF. MATRIX: flow = \n " + str(model_hmmlearn_gaussian_confusion_matrix),
+            "red",
+        )
+    )
 
     if show_plots:
         if add_noise:
@@ -1094,14 +1147,11 @@ def main():
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
-
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
         show_nr_points = np.minimum(1000, obs_train.shape[0])
-        ax.set_title(
-            "Continuous obs. + fitted Flow, loss = " + str(loss_type)
-        )
+        ax.set_title("Continuous obs. + fitted Flow, loss = " + str(loss_type))
         ax.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
