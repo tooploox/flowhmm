@@ -5,6 +5,7 @@ import numpy as np
 import polyaxon.tracking
 import random
 import torch
+import wandb
 from hmmlearn.hmm import MultinomialHMM
 from icecream import ic
 from matplotlib import pyplot as plt
@@ -906,6 +907,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                     np.round(loss_numpy, 6),
                 )
                 polyaxon.tracking.log_metric("train/loss_flow", loss_numpy, step=it)
+                wandb.log({"train/loss_flow": loss_numpy})
             if checkpoint_path and loss_numpy < best_loss:
                 print(
                     f"Epoch: {it} loss ({loss_numpy:.6f}) is better than {best_loss:.6f}. Saving best loss to file {checkpoint_path}"

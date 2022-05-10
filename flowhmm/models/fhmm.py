@@ -5,6 +5,7 @@ import time
 import numpy as np
 import polyaxon.tracking
 import torch
+import wandb
 from hmmlearn.hmm import MultinomialHMM
 from icecream import ic
 from matplotlib import pyplot as plt
@@ -439,6 +440,7 @@ class HMM_NMF(torch.nn.Module):
                 polyaxon.tracking.log_metric(
                     "train/loss", loss.cpu().detach().numpy(), step=it
                 )
+                wandb.log({"train/loss": loss.cpu().detach().numpy()})
 
         return True
 

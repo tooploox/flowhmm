@@ -786,9 +786,9 @@ def main():
     )
     test_cholesky_trained = torch.zeros(test_covars_trained.shape).float().to(device)
 
-    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
+    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_, device=device)
 
-    S_trained = compute_joint_trans_matrix(A_trained)
+    S_trained = compute_joint_trans_matrix(A_trained, device=device)
     S_un_trained = torch.log(S_trained).float().to(device)
 
     for i in np.arange(test_covars_trained.shape[0]):
@@ -947,6 +947,19 @@ def main():
     print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
     print(
         colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red")
+    )
+
+    print(
+        "logprob_hmmlearn_gaussian_trained =\t\t",
+        logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
+    )
+    print(
+        "logprob_torch_trained_continuous1= \t\t",
+        logprob_torch_trained_continuous1 / obs_test.shape[0],
+    )
+    print(
+        "logprob_flow_trained_continuous1= \t\t",
+        logprob_flow_trained_continuous / obs_test.shape[0],
     )
 
     print(
