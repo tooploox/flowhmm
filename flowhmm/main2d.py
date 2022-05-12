@@ -7,7 +7,7 @@ import polyaxon
 import polyaxon.tracking
 import scipy.stats
 import torch
-from hmmlearn.hmm import GaussianHMM
+from hmmlearn.hmm import GaussianHMM, GMMHMM
 from icecream import ic
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
@@ -209,6 +209,7 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
             params_low = distributions[current_state]["params"]["low"]
             params_high = distributions[current_state]["params"]["high"]
             observations[k, :] = [
+
                 np.random.uniform(params_low[0], params_high[0]),
                 np.random.uniform(params_low[1], params_high[1]),
             ]
@@ -746,9 +747,48 @@ def main():
     #          [0.0686, -0.0480]]], device='cuda:0')
 
     # TEST START
+
+    ## GMMHMM START
+    n_mix_list = [1, 5, 10, 20]
+
+    model_hmmlearn_gmmhmm_trained_models = [
+        GMMHMM(n_components=L, covariance_type="full", n_mix=k) for k in n_mix_list
+    ]
+
+    logprob_hmmlearn_gmmhmm_trained_models = np.zeros(len(n_mix_list))
+
     model_hmmlearn_gaussian_trained_test = GaussianHMM(
         n_components=L, covariance_type="full"
     )
+
+    for i in np.arange(len(n_mix_list)):
+        model_hmmlearn_gmmhmm_trained_models[i].fit(obs_train)
+        logprob_hmmlearn_gmmhmm_trained_models[
+            i
+        ] = model_hmmlearn_gmmhmm_trained_models[i].score(obs_test)
+
+    GMMHMM_accuracy_scores = [
+        metrics.accuracy_score(
+            hidden_states_test,
+            model_hmmlearn_gmmhmm_trained_models[i].predict(
+                obs_test
+            ),
+        )
+        for i in np.arange(len(n_mix_list))
+    ]
+
+    GMMHMM_conf_matrices = [
+        metrics.confusion_matrix(
+            hidden_states_test,
+            model_hmmlearn_gmmhmm_trained_models[i].predict(
+                obs_test
+            ),
+        )
+        for i in np.arange(len(n_mix_list))
+    ]
+
+    # GMMHMM END
+
     model_hmmlearn_gaussian_trained_test.fit(obs_train)
 
     model_hmmlearn_gaussian_hidden_states_test_predicted = (
@@ -762,21 +802,9 @@ def main():
         hidden_states_test, model_hmmlearn_gaussian_hidden_states_test_predicted
     )
 
-    print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
-    print(
-        colored(
-            "ACCURACY: hmmlearn_gaussian =\t\t" + str(model_hmmlearn_gaussian_accuracy),
-            "red",
-        )
-    )
 
-    print(
-        colored(
-            "CONF. MATRIX: hmmlear_gaussian = \n "
-            + str(model_hmmlearn_gaussian_confusion_matrix),
-            "red",
-        )
-    )
+
+
 
     test_means_trained = (
         torch.tensor(model_hmmlearn_gaussian_trained_test.means_).float().to(device)
@@ -805,6 +833,8 @@ def main():
         # loss_type="old" #
         loss_type=loss_type,
     )
+
+
 
     logprob_hmmlearn_gaussian_trained_test = model_hmmlearn_gaussian_trained_test.score(
         obs_test
@@ -944,23 +974,79 @@ def main():
         hidden_states_test, model_flow_hidden_states_test_predicted
     )
 
+
+
+
     print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
     print(
         colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red")
     )
 
+    print(colored("ACCURACY (predict hidden states, compare to known ones)", "red"))
     print(
-        "logprob_hmmlearn_gaussian_trained =\t\t",
-        logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
+        colored(
+            "ACCURACY: hmmlearn_gaussian =\t\t" + str(model_hmmlearn_gaussian_accuracy),
+            "red",
+        )
     )
+
+    for nr, i in enumerate(n_mix_list):
+        print(
+            colored(
+                "ACCURACY: GMM-HMM (hmmlearn), n_mix = "
+                + str(i)
+                + " :"
+                + str(GMMHMM_accuracy_scores[nr]),
+                "red",
+            )
+        )
+
+    print(colored("LOGPROBS (normalized)"), "red")
+
+    print(
+            "logprob_hmmlearn_gaussian_trained =\t\t",
+            logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
+        )
     print(
         "logprob_torch_trained_continuous1= \t\t",
         logprob_torch_trained_continuous1 / obs_test.shape[0],
     )
+    for nr, i in enumerate(n_mix_list):
+        print(
+            colored(
+                "GMM-HMM (hmmlearn), n_mix = "
+                + str(i)
+                + " :"
+                + str(logprob_hmmlearn_gmmhmm_trained_models[nr] / n_test),
+                "red",
+            )
+        )
+
     print(
         "logprob_flow_trained_continuous1= \t\t",
         logprob_flow_trained_continuous / obs_test.shape[0],
     )
+
+
+    print(
+        colored(
+            "CONF. MATRIX: hmmlear_gaussian = \n "
+            + str(model_hmmlearn_gaussian_confusion_matrix),
+            "red",
+        )
+    )
+
+    for nr, i in enumerate(n_mix_list):
+            print(
+                colored(
+                    "CONF_MATRIX: GMM-HMM (hmmlearn), n_mix = "
+                    + str(i)
+                    + " :\n"
+                    + str(GMMHMM_conf_matrices[nr]),
+                    "red",
+                )
+            )
+
 
     print(
         colored(
@@ -968,6 +1054,8 @@ def main():
             "red",
         )
     )
+
+
 
     if show_plots:
         if add_noise:
