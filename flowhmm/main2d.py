@@ -1,5 +1,6 @@
 import argparse
 import os
+from itertools import permutations
 from typing import Optional, Dict
 
 import numpy as np
@@ -301,6 +302,15 @@ def draw_ellipse(position, covariance, ax, alpha):
         ax.add_patch(Ellipse(position, nsig * width, nsig * height, angle, alpha=alpha))
 
 
+def calculate_accuracy(confusion_matrix: np.ndarray):
+    total = np.sum(confusion_matrix)
+    n = confusion_matrix.shape[0]
+    return max([
+        np.sum(np.diag(confusion_matrix[range(n), perm]))
+        for perm in permutations(range(n))
+    ])/total
+
+
 def main():
     args = ParseArguments()
 
@@ -322,10 +332,6 @@ def main():
         name=args.run_name
     )
     wandb.config["example_config"] = example_config._asdict()
-
-    artifact = wandb.Artifact('example_yaml', type='file')
-    artifact.add_file(args.example_yaml)
-    wandb.log_artifact(artifact)
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
@@ -847,7 +853,9 @@ def main():
             "red",
         )
     )
-
+    accuracy_G = calculate_accuracy(model_hmmlearn_gaussian_confusion_matrix)
+    wandb.log({f"acc/G": accuracy_G})
+    print({f"acc/G": accuracy_G})
 
 
     test_means_trained = (
@@ -1026,7 +1034,6 @@ def main():
     print(
         colored("ACCURACY: flow =\t\t" + str(model_flow_accuracy), "red")
     )
-    wandb.log({"acc/flow": model_flow_accuracy})
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)", "red"))
     print(
@@ -1046,7 +1053,6 @@ def main():
                 "red",
             )
         )
-        wandb.log({f"acc-G{i}": GMMHMM_accuracy_scores[nr]})
 
     print(colored("LOGPROBS (normalized)"), "red")
 
@@ -1076,15 +1082,23 @@ def main():
     )
 
     for nr, i in enumerate(n_mix_list):
-            print(
-                colored(
-                    "CONF_MATRIX: GMM-HMM (hmmlearn), n_mix = "
-                    + str(i)
-                    + " :\n"
-                    + str(GMMHMM_conf_matrices[nr]),
-                    "red",
-                )
+        print(
+            colored(
+                "CONF_MATRIX: GMM-HMM (hmmlearn), n_mix = "
+                + str(i)
+                + " :\n"
+                + str(GMMHMM_conf_matrices[nr]),
+                "red",
             )
+        )
+        cm = wandb.plot.confusion_matrix(
+            y_true=hidden_states_test,
+            preds=model_hmmlearn_gmmhmm_trained_models[nr].predict(obs_test),
+        )
+        wandb.log({f"conf_mat_G{i}": cm})
+        accuracy_G = calculate_accuracy(GMMHMM_conf_matrices[nr])
+        wandb.log({f"acc/G{i}": accuracy_G})
+        print({f"acc/G{i}": accuracy_G})
 
     print(
         colored(
@@ -1098,6 +1112,9 @@ def main():
         preds=model_flow_hidden_states_test_predicted,
     )
     wandb.log({"conf_mat_flow": cm})
+    accuracy_F = calculate_accuracy(model_flow_confusion_matrix)
+    wandb.log({f"acc/F": accuracy_F})
+    print({f"acc/F": accuracy_F})
 
     if show_plots:
         if add_noise:
