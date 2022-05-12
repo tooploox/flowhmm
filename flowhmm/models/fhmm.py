@@ -427,6 +427,7 @@ class HMM_NMF(torch.nn.Module):
                 loss = None
 
             loss.backward(retain_graph=True)
+            wandb.log({"train/loss": loss.item(), "epoch": it})
             optimizer.step()
             if it < 50 or np.mod(it, display_info_every_step) == 0:
                 print(
@@ -440,7 +441,7 @@ class HMM_NMF(torch.nn.Module):
                 polyaxon.tracking.log_metric(
                     "train/loss", loss.cpu().detach().numpy(), step=it
                 )
-                wandb.log({"train/loss": loss.cpu().detach().numpy()})
+
 
         return True
 

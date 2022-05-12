@@ -554,6 +554,7 @@ class HMM_NMF_multivariate(torch.nn.Module):
                 loss = None
 
             loss.backward(retain_graph=True)
+            wandb.log({"train/loss": loss.item(), "epoch": it})
             optimizer.step()
             if it < 50 or np.mod(it, display_info_every_step) == 0:
                 print(
@@ -567,6 +568,7 @@ class HMM_NMF_multivariate(torch.nn.Module):
                 polyaxon.tracking.log_metric(
                     "train/loss", loss.cpu().detach().numpy(), step=it
                 )
+
 
         return True
 
@@ -834,8 +836,10 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
             # loss=loss_mse(Q_empir_torch.float()*torch.log(0.001+Q_empir_torch.float()),Q_empir_torch.float()*Q_torch)
             # loss = loss_mse(Q_torch, Q_empir_torch.float())
             loss.backward(retain_graph=True)
+            wandb.log({"train/loss_flow": loss.item(), "epoch_flow": it})
             optimizer.step()
             loss_numpy = loss.cpu().detach().numpy()
+
             if it < 50 or np.mod(it, display_info_every_step) == 0:
                 print(
                     "Epoch = ",
@@ -895,8 +899,10 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                 oservations_temp = observations
             loss = -1.0 * self.continuous_score(oservations_temp, detach=False)
             loss.backward(retain_graph=True)
+            wandb.log({"train/loss_flow": loss.item(), "epoch_flow": it})
             optimizer.step()
             loss_numpy = loss.cpu().detach().numpy()
+
             if it < 50 or np.mod(it, display_info_every_step) == 0:
                 print(
                     "Epoch = ",
@@ -907,7 +913,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
                     np.round(loss_numpy, 6),
                 )
                 polyaxon.tracking.log_metric("train/loss_flow", loss_numpy, step=it)
-                wandb.log({"train/loss_flow": loss_numpy})
+
             if checkpoint_path and loss_numpy < best_loss:
                 print(
                     f"Epoch: {it} loss ({loss_numpy:.6f}) is better than {best_loss:.6f}. Saving best loss to file {checkpoint_path}"

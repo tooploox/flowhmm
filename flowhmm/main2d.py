@@ -7,6 +7,7 @@ import polyaxon
 import polyaxon.tracking
 import scipy.stats
 import torch
+import wandb
 from hmmlearn.hmm import GaussianHMM
 from icecream import ic
 from matplotlib import pyplot as plt
@@ -96,6 +97,9 @@ def ParseArguments():
     parser.add_argument(
         "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
     )
+    parser.add_argument(
+        "--run_name", type=str, default="wandb_run_name"
+    )
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
         "--output_file", default=None, required=False, help="file to save results (pkl)"
@@ -145,6 +149,12 @@ def ParseArguments():
     parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
+
+    parser.add_argument(
+        "--use_wandb_logging",
+        action="store_true",
+        help="Whether to log results to wandb",
+    )
     args = parser.parse_args()
     return args
 
@@ -291,12 +301,29 @@ def draw_ellipse(position, covariance, ax, alpha):
 
 def main():
     args = ParseArguments()
-    set_seed(args.seed)
+
+    wandb_logging = args.use_wandb_logging
+
     ic(args)
+
     polyaxon.tracking.init(is_offline=not args.polyaxon)
     polyaxon.tracking.log_inputs(args=args.__dict__)
-
+    set_seed(args.seed)
     example_config = load_example(args.example_yaml)
+
+    wandb.init(
+        mode="online" if wandb_logging else "offline",
+        entity="tooploox-ai",
+        project="flow-hmm",
+        config=args,
+        group=args.example_yaml,
+        name=args.run_name
+    )
+    wandb.config["example_config"] = example_config._asdict()
+
+    artifact = wandb.Artifact('example_yaml', type='file')
+    artifact.add_file(args.example_yaml)
+    wandb.log_artifact(artifact)
 
     EXAMPLE, _ = os.path.basename(args.example_yaml).rsplit(".", 1)
     ic(EXAMPLE, example_config)
@@ -406,6 +433,8 @@ def main():
             n = args.extra_n
         if args.extra_L:
             L = args.extra_L
+
+        wandb.log({"n": n, "L": L})
 
         A_orig = np.array(example_config.transition_matrix)
         mu_orig = compute_stat_distr(A_orig)
@@ -573,6 +602,14 @@ def main():
         # polyaxon.tracking.log_inputs(L=L)
         # polyaxon.tracking.log_inputs(m=m)
         #
+
+        wandb.log(
+            {
+                "n": n,
+                "T": n,
+                "L": L,
+                "m": m
+            })
 
         # Pamietajmy: m=grid_all.shape[0]
         grid_labels = list(range(mm))
@@ -786,9 +823,9 @@ def main():
     )
     test_cholesky_trained = torch.zeros(test_covars_trained.shape).float().to(device)
 
-    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_, device=device)
+    A_trained = torch.tensor(model_hmmlearn_gaussian_trained_test.transmat_)
 
-    S_trained = compute_joint_trans_matrix(A_trained, device=device)
+    S_trained = compute_joint_trans_matrix(A_trained)
     S_un_trained = torch.log(S_trained).float().to(device)
 
     for i in np.arange(test_covars_trained.shape[0]):
@@ -890,7 +927,7 @@ def main():
     )
     if training_type == "Q_training":
         model_hmm_nmf_torch_flow_multivariate.fit(
-            torch.Tensor(grid_all).to(device),
+            torch.tensor(grid_all, device=device),
             obs_train_grid_labels.reshape(-1),
             lr=lrate,
             nr_epochs=nr_epochs,
@@ -898,7 +935,7 @@ def main():
         )
     if training_type == "EM":
         model_hmm_nmf_torch_flow_multivariate.fit_EM(
-            torch.Tensor(obs_train).float().to(device),
+            torch.tensor(obs_train, device=device),
             lr=lrate,
             nr_epochs=nr_epochs,
             display_info_every_step=1,
@@ -920,6 +957,9 @@ def main():
         "logprob_hmmlearn_gaussian_trained =\t\t",
         logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
     )
+    wandb.log({"logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained / obs_test.shape[0]})
+    wandb.log({"G": logprob_hmmlearn_gaussian_trained / obs_test.shape[0]})
+
     print(
         "logprob_torch_trained_continuous1= \t\t",
         logprob_torch_trained_continuous1 / obs_test.shape[0],
@@ -928,6 +968,7 @@ def main():
         "logprob_flow_trained_continuous1= \t\t",
         logprob_flow_trained_continuous / obs_test.shape[0],
     )
+    wandb.log({"F": logprob_flow_trained_continuous / obs_test.shape[0]})
 
     (
         model_flow_hidden_states_test_predicted,
@@ -948,6 +989,7 @@ def main():
     print(
         colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red")
     )
+    wandb.log({"acc/flow": model_hmmlearn_gaussian_accuracy})
 
     print(
         "logprob_hmmlearn_gaussian_trained =\t\t",
@@ -968,6 +1010,12 @@ def main():
             "red",
         )
     )
+
+    cm = wandb.plot.confusion_matrix(
+        y_true=hidden_states_test,
+        preds=model_flow_hidden_states_test_predicted,
+    )
+    wandb.log({"conf_mat": cm})
 
     if show_plots:
         if add_noise:
@@ -1000,6 +1048,7 @@ def main():
                 marker="+",
             )
             ax.set_title("grid with noise")
+            wandb.log({"grid_with_noise": wandb.Image(fig)})
 
         else:
             grid_all_noise = grid_all
@@ -1042,12 +1091,15 @@ def main():
                 alpha=0.4,
             )
 
+        wandb.log({"Continuous obs. + INIT gaussians": wandb.Image(fig)})
+
         # FITTED GAUSSIANS HMMLEARN to orig. cont obs.
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
         show_nr_points = np.minimum(1000, obs_train.shape[0])
         ax.set_title("Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs")
+
         ax.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
@@ -1076,6 +1128,8 @@ def main():
             print("i = ", i)
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
+
+        wandb.log({"Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs": wandb.Image(fig)})
 
         # FITTED GAUSSIANS HMMLEARN to DISCRETIZED obs.
         fig = plt.figure()
@@ -1112,6 +1166,8 @@ def main():
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
+        wandb.log({"Continuous obs. + fitted gaussians HMMLEARN to DISCRETIZED  obs.": wandb.Image(fig)})
+
         # FITTED GAUSSIANS TORCH
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -1120,6 +1176,7 @@ def main():
         ax.set_title(
             "Continuous obs. + fitted gaussians TORCH, loss = " + str(loss_type)
         )
+
         ax.scatter(
             grid_all[:, 0],
             grid_all[:, 1],
@@ -1159,6 +1216,8 @@ def main():
             print("i = ", i)
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
+
+        wandb.log({"Continuous obs. + fitted gaussians TORCH, loss = " + str(loss_type): wandb.Image(fig)})
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -1200,7 +1259,9 @@ def main():
                 label="flow number: " + str(i),
             )
 
-    plt.show()
+        wandb.log({"Continuous obs. + fitted Flow, loss = " + str(loss_type): wandb.Image(fig)})
+
+    # plt.show()
     print("done")
     quit()
 
