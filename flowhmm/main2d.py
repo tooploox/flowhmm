@@ -840,7 +840,13 @@ def main():
         hidden_states_test, model_hmmlearn_gaussian_hidden_states_test_predicted
     )
 
-
+    print(
+        colored(
+            "CONF. MATRIX: hmmlearn_gaussian = \n "
+            + str(model_hmmlearn_gaussian_confusion_matrix),
+            "red",
+        )
+    )
 
 
 
@@ -1009,26 +1015,23 @@ def main():
     model_flow_hidden_states_test_predicted = (
         model_flow_hidden_states_test_predicted.detach().cpu().numpy()
     )
-    model_hmmlearn_gaussian_confusion_matrix = metrics.confusion_matrix(
+    model_flow_confusion_matrix = metrics.confusion_matrix(
         hidden_states_test, model_flow_hidden_states_test_predicted
     )
-    model_hmmlearn_gaussian_accuracy = metrics.accuracy_score(
+    model_flow_accuracy = metrics.accuracy_score(
         hidden_states_test, model_flow_hidden_states_test_predicted
     )
-
-
-
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
     print(
-        colored("ACCURACY: flow =\t\t" + str(model_hmmlearn_gaussian_accuracy), "red")
+        colored("ACCURACY: flow =\t\t" + str(model_flow_accuracy), "red")
     )
-    wandb.log({"acc/flow": model_hmmlearn_gaussian_accuracy})
+    wandb.log({"acc/flow": model_flow_accuracy})
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)", "red"))
     print(
         colored(
-            "ACCURACY: hmmlearn_gaussian =\t\t" + str(model_hmmlearn_gaussian_accuracy),
+            "ACCURACY: flow =\t\t" + str(model_flow_accuracy),
             "red",
         )
     )
@@ -1043,6 +1046,7 @@ def main():
                 "red",
             )
         )
+        wandb.log({f"acc-G{i}": GMMHMM_accuracy_scores[nr]})
 
     print(colored("LOGPROBS (normalized)"), "red")
 
@@ -1064,19 +1068,11 @@ def main():
                 "red",
             )
         )
+        wandb.log({f"G{i}": logprob_hmmlearn_gmmhmm_trained_models[nr] / n_test})
 
     print(
         "logprob_flow_trained_continuous1= \t\t",
         logprob_flow_trained_continuous / obs_test.shape[0],
-    )
-
-
-    print(
-        colored(
-            "CONF. MATRIX: hmmlear_gaussian = \n "
-            + str(model_hmmlearn_gaussian_confusion_matrix),
-            "red",
-        )
     )
 
     for nr, i in enumerate(n_mix_list):
@@ -1090,21 +1086,18 @@ def main():
                 )
             )
 
-
     print(
         colored(
-            "CONF. MATRIX: flow = \n " + str(model_hmmlearn_gaussian_confusion_matrix),
+            "CONF. MATRIX: flow = \n " + str(model_flow_confusion_matrix),
             "red",
         )
     )
-
-
 
     cm = wandb.plot.confusion_matrix(
         y_true=hidden_states_test,
         preds=model_flow_hidden_states_test_predicted,
     )
-    wandb.log({"conf_mat": cm})
+    wandb.log({"conf_mat_flow": cm})
 
     if show_plots:
         if add_noise:
