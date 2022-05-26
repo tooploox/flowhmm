@@ -7,11 +7,11 @@ from typing import NamedTuple, Dict, Any
 import matplotlib.pyplot as plt
 import numpy as np
 import polyaxon.tracking
+import scipy.stats
 import six
 import torch
 import yaml
 from termcolor import colored
-import scipy.stats
 
 import CNF_lib.layers as layers
 import CNF_lib.layers.wrappers.cnf_regularization as reg_lib
