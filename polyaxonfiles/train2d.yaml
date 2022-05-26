@@ -64,4 +64,4 @@ run:
       - name: PYTHONPATH
         value: 'flowhmm:.'
       - name: WANDB_API_KEY
-        value: 146aca10f6a3457420fbce3d5ec37839fd716764
+        value: PUT_WANDB_API_KEY_HERE
