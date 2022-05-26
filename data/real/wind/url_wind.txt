@@ -1,2 +1,0 @@
-https://api.dataplatform.knmi.nl/open-data/v1/datasets/windlidar_nz_wp_platform_1s/versions/1/files
-https://api.dataplatform.knmi.nl/open-data/v1/datasets/windlidar_nz_wp_platform_1s/versions/1/files
