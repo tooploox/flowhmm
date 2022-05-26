@@ -58,8 +58,7 @@ def ParseArguments():
         "-e",
         "--example_yaml",
         type=str,
-        # default="examples/SYNTHETIC_2G_1U.yaml",
-        default="examples/SYNTHETIC_1B_1U_1G_v2.yaml",
+        default="examples/SYNTHETIC_1B_1U_1G.yaml",
         help="Path to example YAML config file",
     )
     parser.add_argument(
