@@ -36,6 +36,7 @@ Gaussian baselines.
 ```bash
 python flowhmm/main.py -e examples/SYNTHETIC_2G_1U.yaml \
  --nr_epochs=500 \
+ --training_type=Q_training # or EM \
  --add_noise=True --noise_var=0.1 \
  --show_plots \
  --extra_n=$N 
@@ -43,7 +44,7 @@ python flowhmm/main.py -e examples/SYNTHETIC_2G_1U.yaml \
 where `N` variable is the length of training observations.
 We chose `N=1000, 10000, 100000`; see [SYNTHETIC_2G_1U.yaml](examples/SYNTHETIC_2G_1U.yaml) for more details.
 
-* synthetic dataset with the following distributions (see Example 2 in paper):
+* synthetic dataset with the following distributions (see **Example 2** in paper):
   * 1 beta
   * 1 uniform
   * 1 gaussian
@@ -52,6 +53,7 @@ We chose `N=1000, 10000, 100000`; see [SYNTHETIC_2G_1U.yaml](examples/SYNTHETIC_
 python flowhmm/main.py -e examples/SYNTHETIC_1B_1U.yaml \
  --nr_epochs=1000 \
  --add_noise=True --noise_var=0.00005 \
+ --training_type=Q_training # or EM \
  --show_plots \
  --extra_n=$N --extra_L=$L 
 ```
@@ -59,3 +61,28 @@ where `N` variable is the length of training observations and `L`
 is the number of hidden states (flow models to learn).
 We chose `N`=1000, 10000, 100000 and `L`=2, 3;
 see [SYNTHETIC_1B_1U_1G.yaml](examples/SYNTHETIC_1B_1U_1G.yaml) for more details.
+
+* 2D synthetic dataset with two "Moons" and one Uniform distribution (see **Example 5** in paper):
+```bash
+python flowhmm/main2d.py \
+ -e examples/SYNTHETIC_2d_data_1U_2Moons.yaml # variant (a) \
+ # -e examples/SYNTHETIC_2d_data_1U_2Moons_A2.yaml # variant (b) \
+ --nr_epochs=500 \
+ --training_type=Q_training # or EM \
+ --extra_n=1000 --lrate=0.01 \
+ --add_noise --noise_var=0.001 \
+ --show_plots
+```
+
+* 2D synthetic dataset with one bivariate Gaussian, one Uniform and one related to geometric Brownian motion (see **Example 6** in paper):
+```bash
+python flowhmm/main2d.py \
+  -e examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion.yaml # variant (a) \
+  # -e examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion_A2.yaml # variant (b) \
+  --nr_epochs=500
+  --training_type=Q_training # or EM \
+  --extra_n=1000 \ 
+  --lrate=0.01  \
+  --add_noise --noise_var=0.001 \
+  --show_plots
+```
