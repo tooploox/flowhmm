@@ -4,7 +4,7 @@ data_type: real
 nr_hidden_states: 2
 
 dataset:
-  filepath: /home/maciej/PycharmProjects/flowhmm/data/real/DowJones/DowJones_diff_2.csv # /home/maciej/Pobrane/archive/istanbul_stock_exchange.csv # 162501 rows
+  filepath: data/real/DowJones/DowJones_diff_2.csv # /home/maciej/Pobrane/archive/istanbul_stock_exchange.csv # 162501 rows
   load_args:
     header: 0 # None
     compression: #gzip
