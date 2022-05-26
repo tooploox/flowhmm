@@ -1,4 +1,4 @@
-# Examples 2a & 2b (in the paper)
+# Example 5b
 
 data_type: synthetic    # DATA_TYPE = "SYNTHETIC"  <- one can give lower or upper case
 
