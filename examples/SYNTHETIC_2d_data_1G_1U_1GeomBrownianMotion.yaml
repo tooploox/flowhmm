@@ -1,4 +1,4 @@
-# Examples 2a & 2b (in the paper)
+# Example 6a
 
 data_type: synthetic    # DATA_TYPE = "SYNTHETIC"  <- one can give lower or upper case
 
@@ -6,14 +6,13 @@ data_type: synthetic    # DATA_TYPE = "SYNTHETIC"  <- one can give lower or uppe
 
 nr_hidden_states: 3     # L=3
 hidden_states_distributions: #
-  - {name: uniform, params: {low: [0.0,1.2], high: [0.7,2.5]}}
-  - {name: normal, params: {mean: [2.5,1], cov: [[0.01,0.014],[0.014,0.04]]}}
+  - {name: uniform, params: {low: [0.25,0.7], high: [0.5,2.0]}}
+  - {name: normal, params: {mean: [0.5,0.5], cov: [[0.01,-0.014],[-0.014,0.04]]}}
   - {name: gbm, params: {r: 0.05, sigma: 0.5, S0: 0.3} }  # loc = mean, scale = std_dev
 #                                     var=0.0046
 
 
 transition_matrix: [[0.0, 0.9, 0.1], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]] # A_orig A1
-#transition_matrix: [[0.4, 0.2, 0.4], [0.25, 0.5, 0.25], [0.4, 0.2, 0.4]] # A_orig A2
 
 nr_observations: 10000
 # n = 10000
