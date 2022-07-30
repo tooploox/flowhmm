@@ -655,6 +655,8 @@ def main():
         nr_epochs=nr_epochs,
         display_info_every_step=1,
     )
+    model_hmm_nmf_torch_flow_multivariate.eval()
+
     logprob_flow_test_continuous = (
         model_hmm_nmf_torch_flow_multivariate.continuous_score(obs_test)
     )
