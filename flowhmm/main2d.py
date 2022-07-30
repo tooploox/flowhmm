@@ -151,7 +151,7 @@ def ParseArguments():
     parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
-
+    parser.add_argument("--max_shape", type=int, default=1000, required=False, help="max number of samples used when training EM")
     parser.add_argument(
         "--use_wandb_logging",
         action="store_true",
