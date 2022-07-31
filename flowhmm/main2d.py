@@ -1360,7 +1360,7 @@ def main():
 
         wandb.log({"Continuous obs. + fitted Flow, loss = " + str(loss_type): wandb.Image(fig)})
 
-    # plt.show()
+    plt.show()
     print("done")
     quit()
 
