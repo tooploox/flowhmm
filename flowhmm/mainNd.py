@@ -665,17 +665,20 @@ def main():
         "logprob_hmmlearn_gaussian_trained_models =\t\t",
         logprob_hmmlearn_gaussian_trained_models / obs_test.shape[0],
     )
+    wandb.log({"G": logprob_hmmlearn_gaussian_trained_models / obs_test.shape[0]})
 
     for i in np.arange(len(n_mix_list)):
         print(
             "logprob_hmmlearn_gmmhmm_trained_models " + str(n_mix_list[i]) + "=\t\t",
             logprob_hmmlearn_gmmhmm_trained_models[i] / obs_test.shape[0],
         )
+        wandb.log({f"G{str(n_mix_list[i])}": logprob_hmmlearn_gmmhmm_trained_models[i] / obs_test.shape[0]})
 
     print(
         "logprob_flow_test_continuous =\t\t",
         logprob_flow_test_continuous / obs_test.shape[0],
     )
+    wandb.log({"F": logprob_flow_test_continuous / obs_test.shape[0]})
 
 
 if __name__ == "__main__":
