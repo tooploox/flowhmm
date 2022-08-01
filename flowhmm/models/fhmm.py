@@ -544,7 +544,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
         self.device = self.Shat_un.device
         self.init_params = init_params
         self.loss_type = params.loss_type
-        self.max_shape = 1000
+        self.max_shape = params.max_shape
         cnfs = []
         for k in range(self.L):
             cnfs.append(build_model_tabular(params, dim).to(self.device))
