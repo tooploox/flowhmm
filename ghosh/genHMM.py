@@ -1,11 +1,11 @@
 import os
 import sys
 import numpy as np
-from realnvp import RealNVP
+from ghosh.realnvp import RealNVP
 import torch
 from torch import nn, distributions
-from _torch_hmmc import _compute_log_xi_sum, _forward, _backward
-from utils import step_learning_rate_decay
+from ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
+from ghosh.utils import step_learning_rate_decay
 from hmmlearn.base import ConvergenceMonitor
 from timeit import default_timer as timer
 
@@ -601,7 +601,8 @@ class GenHMM(torch.nn.Module):
                 total_logprob += logprob_
             
             # consider put a stop criteria here to 
-            
+            self.iepoch = 1
+            self.iclass = 1
             print("epoch:{}\tclass:{}\tStep:{}\tb:{}\tLoss:{}\tNLL:{}".format(self.iepoch,
                                                                               self.iclass,i, b,
                                                                               total_loss/(b+1),

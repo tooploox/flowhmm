@@ -10,9 +10,9 @@ from torch import distributions
 from sklearn import datasets
 import matplotlib.pyplot as plt
 from torch.nn.parameter import Parameter
-from glow_modules import *
-from ops import *
-from plot_functions import plot_results
+from ghosh.glow_modules import *
+from ghosh.ops import *
+from ghosh.plot_functions import plot_results
 from torch.autograd import Function, Variable, detect_anomaly
 from datetime import datetime
 

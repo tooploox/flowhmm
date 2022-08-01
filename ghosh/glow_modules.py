@@ -11,7 +11,7 @@ from math import log, pi, exp
 import numpy as np 
 from scipy import linalg as la
 import datetime as dt
-from ops import *
+from ghosh.ops import *
 
 # Defines a class for the ActNorm Module
 class ActNorm(nn.Module):
