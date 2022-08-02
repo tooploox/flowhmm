@@ -1,32 +1,26 @@
 import argparse
 import os
-import pandas as pd
 from itertools import permutations
 from typing import Optional, Dict
 
 import numpy as np
+import pandas as pd
 import polyaxon
 import polyaxon.tracking
 import scipy.stats
 import torch
-from hmmlearn.hmm import GaussianHMM, GMMHMM
 import wandb
-from hmmlearn.hmm import GaussianHMM
 from icecream import ic
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 from sklearn.cluster import KMeans
-from sklearn.neighbors import KNeighborsClassifier
-from termcolor import colored
 from sklearn.datasets import make_moons
-from sklearn import metrics
-
-from models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
-from utils import set_seed, load_example, compute_stat_distr, compute_joint_trans_matrix
-
-from ghosh.genHMM import GenHMM
-from ghosh.utils import TheDataset
 from torch.utils.data import DataLoader
+
+from ghosh.genHMM import GenHMM, ConvgMonitor
+from ghosh.utils import TheDataset, pad_data
+from utils import set_seed, load_example, compute_stat_distr
+
 
 # sample usage
 
@@ -66,7 +60,6 @@ def ParseArguments():
         "-e",
         "--example_yaml",
         type=str,
-        # default="examples/SYNTHETIC_2d_data_2G_1U.yaml",
         default="examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion.yaml",
         help="Path to example YAML config file",
     )
@@ -385,6 +378,11 @@ def main():
         m = example_config.grid_size
         L = example_config.nr_hidden_states
 
+        if args.extra_n:
+            n = args.extra_n
+        if args.extra_L:
+            L = args.extra_L
+
         obs_mean = np.mean(obs_train, axis=0)
         obs_std = np.std(obs_train, axis=0)
         obs_train = (obs_train - obs_mean)/obs_std
@@ -394,6 +392,8 @@ def main():
         #remove all rows with at least one NaN
         obs_train = obs_train[~np.isnan(obs_train).any(axis=1)]
         obs_test = obs_test[~np.isnan(obs_test).any(axis=1)]
+
+        wandb.log({"n": n, "L": L, "m": m})
 
     # SYNTHETIC DATASETS
     elif example_config.data_type == "synthetic":
@@ -411,7 +411,8 @@ def main():
         if args.extra_L:
             L = args.extra_L
 
-        wandb.log({"n": n, "L": L})
+        wandb.log({"n": n, "L": L, "m": m})
+
 
         A_orig = np.array(example_config.transition_matrix)
         mu_orig = compute_stat_distr(A_orig)
@@ -581,15 +582,44 @@ def main():
         #
         # Here we train Ghosh model
 
-    ghosh = GenHMM(n_states=L, n_prob_components=1, net_D=3, net_H=6, p_drop=0.5, device=device, lr=lrate,
-                   em_skip=nr_epochs).to(device)
+    ghosh = GenHMM(n_states=L, n_prob_components=1, net_D=2, net_H=4, p_drop=0.0, device=device, lr=lrate, em_skip=nr_epochs).to(device)
+    tol = 1e-2
+    niter = 1
+    verbose = True
+    ghosh.iepoch = '1'
+    ghosh.iclass = 39
+    ghosh.monitor_ = ConvgMonitor(tol, niter, verbose)
+    ghosh.device = device
     ghosh.pushto(device)
-    ghosh_data = DataLoader(dataset=TheDataset([obs_train], lengths=[obs_train.shape[0]], device=device),
-                            batch_size=1,
-                            shuffle=True)
-    # ghosh_data = TheDataset([obs_train], [obs_train.shape[0]], device=device)
+    xtrain = [obs_train] #[obs_train for k in range(100)]
+    xtest = [obs_test]  # [obs_train for k in range(100)]
+    l = [x.shape[0] for x in xtrain]
+    l_test = [x.shape[0] for x in xtest]
+    max_len_ = max([x.shape[0] for x in xtrain])
+    xtrain_padded = pad_data(xtrain, max_len_)
+    # xtest_padded = pad_data(xtest, max_len_)
+    ghosh_data = DataLoader(dataset=TheDataset(xtrain_padded, lengths=l, device=device), batch_size=1,
+                           shuffle=True)
+    #ghosh_data = TheDataset([obs_train], [obs_train.shape[0]], device=device)
+    ghosh.number_training_data = len(xtrain)
+
+    # set model into train mode
     ghosh.train()
-    ghosh.fit(ghosh_data)
+
+    # Reset the convergence monitor
+    if int(ghosh.iepoch) == 1:
+        ghosh.monitor_._reset()
+
+    for iiter in range(niter):
+        #mdl.fit(traindata)
+        ghosh.iter = iiter
+        flag = ghosh.fit(ghosh_data)
+
+    gosh_data_test = DataLoader(dataset=TheDataset(xtest, lengths=l_test, device=device), batch_size=1, shuffle=False)
+    data = next(iter(gosh_data_test))
+    logprobs_test = ghosh.pred_score(data)
+    print(f"Test = {logprobs_test/obs_test.shape[0]}")
+    wandb.log({"F_Ghosh": logprobs_test / obs_test.shape[0]})
 
 
 if __name__ == "__main__":

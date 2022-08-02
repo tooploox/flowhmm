@@ -1,13 +1,16 @@
-import os
 import sys
-import numpy as np
-from ghosh.realnvp import RealNVP
-import torch
-from torch import nn, distributions
-from ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
-from ghosh.utils import step_learning_rate_decay
-from hmmlearn.base import ConvergenceMonitor
 from timeit import default_timer as timer
+
+import numpy as np
+import torch
+import wandb
+from hmmlearn.base import ConvergenceMonitor
+from torch import nn, distributions
+
+from ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
+from ghosh.realnvp import RealNVP
+from ghosh.utils import step_learning_rate_decay
+
 
 class ConvgMonitor(ConvergenceMonitor):
     def report(self, logprob):
@@ -37,7 +40,7 @@ class ConvgMonitor(ConvergenceMonitor):
             self.delta = delta
             self.delta_rel = delta_rel
             message = self._template.format(iter=self.iter+1,
-                                            logprob=logprob,
+                                            log_prob=logprob,
                                             delta=self.delta_rel)
             print(message, file=sys.stdout)
             print("Convergence threshold:{}".format(self.tol))
@@ -493,6 +496,7 @@ class GenHMM(torch.nn.Module):
             self._initialize_sufficient_statistics()
         
         x, x_mask = batch
+        x_mask = x_mask.to(bool)
         batch_size = x.shape[0]
         n_samples = x.shape[1]
 
@@ -501,7 +505,7 @@ class GenHMM(torch.nn.Module):
             # Two posteriors to be computed here:
             # 1. the hidden state posterior, post
             old_llh, old_loglh_sk = self._getllh(self.old_networks, batch)
-            old_llh[~x_mask] = 0
+            old_llh[~x_mask.to(bool)] = 0
             old_logprob, old_fwdlattice = self._do_forward_pass(old_llh, x_mask)
             # assert ((old_logprob <= 0).all())
 
@@ -512,7 +516,7 @@ class GenHMM(torch.nn.Module):
             old_bwdlattice = self._do_backward_pass(old_llh, x_mask)
             posteriors = self._compute_posteriors(old_fwdlattice, old_bwdlattice)
 
-            posteriors[~x_mask] = 0
+            posteriors[~x_mask.to(bool)] = 0
             post = posteriors
 
             # 2. the probability model components posterior, k condition on hidden state, observation and hmm model
@@ -524,7 +528,7 @@ class GenHMM(torch.nn.Module):
             
             logpk_sX = log_num - log_denom.reshape(batch_size, n_samples, self.n_states, 1)
             ## To Do: normalize logpk_sX before set un-masked values
-            logpk_sX[~x_mask] = 0
+            logpk_sX[~x_mask.to(bool)] = 0
         
         # hmm parameters should be updated based on old model
         if self.update_HMM and not testing:
@@ -537,7 +541,7 @@ class GenHMM(torch.nn.Module):
 
         # compute sequence log-likelihood in self.networks, just to monitor the self.networks performance
         with torch.no_grad():
-            llh[~x_mask] = 0
+            llh[~x_mask.to(bool)] = 0
             logprob, _ = self._do_forward_pass(llh, x_mask)
         # assert((logprob <= 0).all())
         # Brackets = log-P(X | chi, S) + log-P(chi | s)
@@ -607,6 +611,14 @@ class GenHMM(torch.nn.Module):
                                                                               self.iclass,i, b,
                                                                               total_loss/(b+1),
                                                                               -total_logprob/n_sequences), file=sys.stdout)
+
+            wandb.log(
+                {
+                    "train/loss_ghosh": total_loss/(b+1),
+                    "train/nll_ghosh": -total_logprob/n_sequences,
+                    "epoch_ghosh": i,
+                }
+            )
             
         ################################################################################################
         # Updating the HMM parameters such as start prob vector, transmat and mixture of weights for the 

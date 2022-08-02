@@ -141,7 +141,7 @@ class RealNVP(torch.nn.Module):
 
         px = self.prior.log_prob(z) + logp
         # set the padded positions as zeros
-        px[~mask] = 0
+        px[~mask.to(bool)] = 0
         # px[~mask].zero_()
         #if (px > 0).any():
           #  print("here")

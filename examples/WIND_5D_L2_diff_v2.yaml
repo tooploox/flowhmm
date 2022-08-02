@@ -4,11 +4,7 @@ data_type: real
 nr_hidden_states: 2
 
 dataset:
-  #filepath: data_upload/1.csv.gz # 162501 rows
-  #filepath: data/real/daily-min-temperatures.csv # 162501 rows
-  #filepath: data/real/wind/pres_diff.csv
-  filepath: /home/maciej/PycharmProjects/flowhmm/data/real/wind/wind_5d.csv
-  filepath: /home/peyo/repos/flowhmm/data/real/wind/wind_diff.csv
+  filepath: data/real/wind/wind_diff.csv
   
   load_args:
     header: 0 # None
