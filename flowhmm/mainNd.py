@@ -382,6 +382,11 @@ def main():
         m = example_config.grid_size
         L = example_config.nr_hidden_states
 
+        if args.extra_n:
+            n = args.extra_n
+        if args.extra_L:
+            L = args.extra_L
+
         obs_mean = np.mean(obs_train, axis=0)
         obs_std = np.std(obs_train, axis=0)
         obs_train = (obs_train - obs_mean)/obs_std
@@ -391,6 +396,8 @@ def main():
         #remove all rows with at least one NaN
         obs_train = obs_train[~np.isnan(obs_train).any(axis=1)]
         obs_test = obs_test[~np.isnan(obs_test).any(axis=1)]
+
+        wandb.log({"n": n, "L": L, "m": m})
 
     # SYNTHETIC DATASETS
     elif example_config.data_type == "synthetic":
@@ -408,7 +415,8 @@ def main():
         if args.extra_L:
             L = args.extra_L
 
-        wandb.log({"n": n, "L": L})
+        wandb.log({"n": n, "L": L, "m": m})
+
 
         A_orig = np.array(example_config.transition_matrix)
         mu_orig = compute_stat_distr(A_orig)
