@@ -1,14 +1,18 @@
 [tool.poetry]
 name = "flowhmm"
 version = "0.1.0"
-description = ""
+description = "FlowHMM: Flow-based continuous hidden Markov models"
 authors = [
-    "Anonymous Author <anon.email@domain.com>",
+    "Tooploox RnD",
+    "Paweł Lorek <pawel.lorek@tooploox.com>",
+    "Rafał Nowak <rafal.nowak@tooploox.com>",
+    "Maciej Zięba <maciej.zieba@tooploox.com>",
+    "Tomasz Trzciński <tomasz.trzcinski@tooploox.com>"
 ]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 hmmlearn = "^0.2.6"
 numpy = "^1.22.1"
 torch = "^1.10.2"
@@ -21,6 +25,7 @@ torchdiffeq = "^0.2.2"
 black = "^22.3.0"
 flake8 = "^4.0.1"
 wandb = "^0.12.16"
+parse = "^1.19.0"
 
 [tool.poetry.dev-dependencies]
 

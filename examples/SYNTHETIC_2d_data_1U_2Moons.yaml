@@ -8,7 +8,6 @@ nr_hidden_states: 3     # L=3
 hidden_states_distributions: #
   #- {name: uniform, params: {low: [0.8,1.0], high: [1.5,2.5]}}
   - {name: uniform, params: {low: [0.8,-1.0], high: [1.5, 1.0]}}
-#  - {name: uniform, params: {low: [0.0,-1.0], high: [0.7, 1.0]}}
   - {name: moon1}
   - {name: moon2}
 
