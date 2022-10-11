@@ -15,24 +15,28 @@ def test_norm_minmax():
     min_ = x.min(0)
     max_ = x.max(0)
     xn = norm_minmax(x, min_=min_, max_=max_)
-    assert ((xn == np.array([[0, 1], [1, 0]])).all())
+    assert (xn == np.array([[0, 1], [1, 0]])).all()
 
 
 def norm_minmax(x, min_=None, max_=None):
-    return ((x - min_.reshape(1, -1)) / (max_.reshape(1, -1) - min_.reshape(1, -1)))
+    return (x - min_.reshape(1, -1)) / (max_.reshape(1, -1) - min_.reshape(1, -1))
 
 
 def normalize(xtrain, xtest):
     """Normalize training data set between 0 and 1. Perform the same scaling on the testing set."""
-    f_min = np.vectorize(lambda x : np.min(x, axis=0), signature="()->(k)")
-    f_max = np.vectorize(lambda x : np.max(x, axis=0), signature="()->(k)")
+    f_min = np.vectorize(lambda x: np.min(x, axis=0), signature="()->(k)")
+    f_max = np.vectorize(lambda x: np.max(x, axis=0), signature="()->(k)")
     min_tr = np.min(f_min(xtrain), axis=0)
     max_tr = np.max(f_max(xtrain), axis=0)
 
     # The first component is zeros and can create division by 0
     min_tr[0] = 0
     max_tr[0] = 1
-    f_perform_normalize = np.vectorize(partial(norm_minmax, min_=min_tr, max_=max_tr), signature="()->()", otypes=[np.ndarray])
+    f_perform_normalize = np.vectorize(
+        partial(norm_minmax, min_=min_tr, max_=max_tr),
+        signature="()->()",
+        otypes=[np.ndarray],
+    )
     return f_perform_normalize(xtrain), f_perform_normalize(xtest)
 
 
@@ -46,24 +50,30 @@ def getsubset(data, label, iphn):
 def find_change_loc(x):
     dx = np.diff(x)
     # Make a clean vector to delimit phonemes
-    change_locations = np.array([0] + (1 + np.argwhere(dx != 0)).reshape(-1).tolist() + [x.shape[0]])
+    change_locations = np.array(
+        [0] + (1 + np.argwhere(dx != 0)).reshape(-1).tolist() + [x.shape[0]]
+    )
     # Make an array of size n_phoneme_in_sentence x 2, containing begining and end of each phoneme in a sentence
 
-    fmt_interv = np.array([[change_locations[i-1], change_locations[i]]\
-                                 for i in range(1, change_locations.shape[0]) ])
+    fmt_interv = np.array(
+        [
+            [change_locations[i - 1], change_locations[i]]
+            for i in range(1, change_locations.shape[0])
+        ]
+    )
     return fmt_interv, x[change_locations[:-1]]
 
 
 def test_find_change_loc():
-    l = np.array([1,1,1,1,1,1,1,0,0,0,0,0,0,2,2,2,2,2,2,3])
+    l = np.array([1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 3])
     out, out2 = find_change_loc(l)
-    assert((out2 == np.array([1,0,2,3])).all())
-    assert((out == np.array([[0,  7], [7, 13],[13, 19],[19, 20]])).all())
+    assert (out2 == np.array([1, 0, 2, 3])).all()
+    assert (out == np.array([[0, 7], [7, 13], [13, 19], [19, 20]])).all()
 
     l = np.array([1, 1, 0, 0, 2, 2])
     out, out2 = find_change_loc(l)
-    assert((out2 == np.array([1, 0, 2])).all())
-    assert((out == np.array([[0, 2], [2, 4], [4, 6]])).all())
+    assert (out2 == np.array([1, 0, 2])).all()
+    assert (out == np.array([[0, 2], [2, 4], [4, 6]])).all()
 
 
 def to_phoneme_level(DATA):
@@ -83,17 +93,18 @@ def to_phoneme_level(DATA):
 
         # For each phoneme found in the sentence, get the sequence of MFCCs and the label
         for j in range(seq_train[i].shape[0]):
-            data_tr += [x[seq_train[i][j][0]:seq_train[i][j][1]]]
+            data_tr += [x[seq_train[i][j][0] : seq_train[i][j][1]]]
             labels_tr += [targets_train[i][j]]
 
     # Return an array of arrays for the data, and an array of float for the labels
     return np.array(data_tr), np.array(labels_tr)
 
+
 def remove_label(data, labels, phn2int_39):
-    keep_idx = labels != phn2int_39['-']
+    keep_idx = labels != phn2int_39["-"]
     data_out = data[keep_idx]
     label_out = labels[keep_idx]
-    assert(len(label_out) == data_out.shape[0])
+    assert len(label_out) == data_out.shape[0]
     return data_out, label_out
 
 
@@ -104,7 +115,9 @@ def phn61_to_phn39(label_int_61, int2phn_61=None, data_folder=None, phn2int_39=N
 
     label_str_61 = [int2phn_61[int(x)] for x in label_int_61]
 
-    label_str_39 = [phn61_to_39_map[x] if x in phn61_to_39_map.keys() else x for x in label_str_61 ]
+    label_str_39 = [
+        phn61_to_39_map[x] if x in phn61_to_39_map.keys() else x for x in label_str_61
+    ]
 
     # At this point there is still 40 different phones, but '-' will be deleted later.
     if phn2int_39 is None:
@@ -117,11 +130,13 @@ def phn61_to_phn39(label_int_61, int2phn_61=None, data_folder=None, phn2int_39=N
 
 def test_flip():
     d = {k: v for k, v in zip(list("abcbdefg"), list(range(8)))}
-    assert(d == flip(flip(d)))
+    assert d == flip(flip(d))
+
 
 def flip(d):
     """In a dictionary, swap keys and values"""
     return {v: k for k, v in d.items()}
+
 
 def read_classmap(folder):
     fname = os.path.join(folder, "class_map.json")
@@ -137,7 +152,7 @@ def write_classmap(class2phn, folder):
     with open(os.path.join(folder, "class_map.json"), "w") as outfile:
         out_str = json.dumps(class2phn, indent=2)
         print("Classes are: \n" + out_str, file=sys.stderr)
-        outfile.write(out_str+"\n")
+        outfile.write(out_str + "\n")
     return 0
 
 
@@ -151,13 +166,18 @@ def accuracy_fun(data_file, mdl=None):
     # zero pad data for batch training
 
     true_class = parse("{}_{}.pkl", os.path.basename(data_file))[1]
-    out_list = [mdl.forward(x_i[:,1:]) for x_i in X]
+    out_list = [mdl.forward(x_i[:, 1:]) for x_i in X]
     out = np.array(out_list).transpose()
 
     # the out here should be the shape: data_size * nclasses
     class_hat = np.argmax(out, axis=0) + 1
     istrue = class_hat == int(true_class)
-    print(data_file, "Done ...", "{}/{}".format(str(istrue.sum()), str(istrue.shape[0])), file=sys.stderr)
+    print(
+        data_file,
+        "Done ...",
+        "{}/{}".format(str(istrue.sum()), str(istrue.shape[0])),
+        file=sys.stderr,
+    )
     return "{}/{}".format(str(istrue.sum()), str(istrue.shape[0]))
 
 
@@ -172,10 +192,11 @@ def accuracy_fun_torch(data_file, mdl=None, batch_size_=128):
     # zero pad data for batch training
     max_len_ = max([xx.shape[0] for xx in X])
     x_padded = pad_data(X, max_len_)
-    batchdata = DataLoader(dataset=TheDataset(x_padded,
-                                              lengths=l,
-                                              device=mdl.hmms[0].device),
-                           batch_size=batch_size_, shuffle=True)
+    batchdata = DataLoader(
+        dataset=TheDataset(x_padded, lengths=l, device=mdl.hmms[0].device),
+        batch_size=batch_size_,
+        shuffle=True,
+    )
 
     true_class = parse("{}_{}.pkl", os.path.basename(data_file))[1]
     out_list = [mdl.forward(x) for x in batchdata]
@@ -183,11 +204,17 @@ def accuracy_fun_torch(data_file, mdl=None, batch_size_=128):
 
     # the out here should be the shape: data_size * nclasses
     class_hat = torch.argmax(out, dim=0) + 1
-    #print("True class:{}".format(true_class))
-    #print("Predicted classes:{}".format(class_hat))
-    print(data_file, "Done ...", "{}".format(acc_str(class_hat, true_class)), file=sys.stderr)
+    # print("True class:{}".format(true_class))
+    # print("Predicted classes:{}".format(class_hat))
+    print(
+        data_file,
+        "Done ...",
+        "{}".format(acc_str(class_hat, true_class)),
+        file=sys.stderr,
+    )
 
     return acc_str(class_hat, true_class)
+
 
 def acc_str(class_hat, class_true):
     istrue = class_hat == int(class_true)
@@ -197,18 +224,18 @@ def acc_str(class_hat, class_true):
 def test_acc_str():
     class_hat = torch.FloatTensor([1, 2])
     class_true = 2
-    assert( acc_str(class_hat, 1) == "1/2" )
-    assert( acc_str(class_hat, 2) == "1/2" )
+    assert acc_str(class_hat, 1) == "1/2"
+    assert acc_str(class_hat, 2) == "1/2"
 
     class_hat = torch.FloatTensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    assert( acc_str(class_hat, 1) == "1/10")
+    assert acc_str(class_hat, 1) == "1/10"
 
     class_hat = torch.FloatTensor([1, 2, 3, 4, 5, 6, 7, 8, 1, 10])
-    assert (acc_str(class_hat, 1) == "2/10")
+    assert acc_str(class_hat, 1) == "2/10"
 
 
 def append_class(data_file, iclass):
-    return data_file.replace(".pkl", "_" + str(iclass)+".pkl")
+    return data_file.replace(".pkl", "_" + str(iclass) + ".pkl")
 
 
 def divide(res_int):
@@ -220,15 +247,23 @@ def parse_(res_str):
     res_int = [int(x) for x in res_str_split]
     return res_int
 
+
 class TheDataset(Dataset):
     """Wrapper for DataLoader input."""
-    def __init__(self, xtrain, lengths, device='cpu'):
+
+    def __init__(self, xtrain, lengths, device="cpu"):
         self.data = [torch.FloatTensor(x).to(device) for x in xtrain]
         self.lengths = lengths
         max_len_ = self.data[0].shape[0]
-        self.mask = [torch.cat((torch.ones(l, dtype=torch.uint8), \
-                                torch.zeros(max_len_ - l, dtype=torch.uint8))).to(device) \
-                     for l in self.lengths]
+        self.mask = [
+            torch.cat(
+                (
+                    torch.ones(l, dtype=torch.uint8),
+                    torch.zeros(max_len_ - l, dtype=torch.uint8),
+                )
+            ).to(device)
+            for l in self.lengths
+        ]
         self.len = len(self.data)
 
     def __getitem__(self, index):
@@ -239,7 +274,7 @@ class TheDataset(Dataset):
 
 
 def pad_data(x, length):
-    """ Add zeros at the end of all sequences in to get sequences of lengths `length`
+    """Add zeros at the end of all sequences in to get sequences of lengths `length`
     Input:  x : list, all of sequences of variable length to pad
             length : integer, common target length of sequences.
     output: list,  all input sequences zero-padded.
@@ -249,34 +284,40 @@ def pad_data(x, length):
     return [np.concatenate((xx, np.zeros((length - xx.shape[0] + 1, d)))) for xx in x]
 
 
-def norm_prob(x,axis=None):
+def norm_prob(x, axis=None):
     coef_ = x.sum(axis)
-    if axis==0:
-        coef_ = coef_.reshape(1,-1)
-    elif axis==1:
+    if axis == 0:
+        coef_ = coef_.reshape(1, -1)
+    elif axis == 1:
         coef_ = coef_.reshape(-1, 1)
 
     return x / np.repeat(coef_, x.shape[axis], axis=axis)
 
+
 def test_norm_prob():
     x = np.array([[1, 2], [4, 5]])
     xn = norm_prob(x, axis=1)
-    assert(np.all(xn == np.array([[1/(1+2), 2/(1+2)], [4/(4+5), 5/(4+5)]])))
+    assert np.all(
+        xn == np.array([[1 / (1 + 2), 2 / (1 + 2)], [4 / (4 + 5), 5 / (4 + 5)]])
+    )
     xn = norm_prob(x, axis=0)
-    assert (np.all(xn == np.array([[1 / (1 + 4), 2 / (5 + 2)], [4 / (4 + 1), 5 / (2 + 5)]])))
+    assert np.all(
+        xn == np.array([[1 / (1 + 4), 2 / (5 + 2)], [4 / (4 + 1), 5 / (2 + 5)]])
+    )
 
 
-def step_learning_rate_decay(init_lr, global_step, minimum,
-                             anneal_rate=0.98,
-                             anneal_interval=1):
+def step_learning_rate_decay(
+    init_lr, global_step, minimum, anneal_rate=0.98, anneal_interval=1
+):
     rate = init_lr * anneal_rate ** (global_step // anneal_interval)
     if rate < minimum:
         rate = minimum
     return rate
 
+
 def get_freer_gpu():
-    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
-    memory_available = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+    os.system("nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp")
+    memory_available = [int(x.split()[2]) for x in open("tmp", "r").readlines()]
     return np.argmax(memory_available)
 
 

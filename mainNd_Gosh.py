@@ -96,9 +96,7 @@ def ParseArguments():
     parser.add_argument(
         "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
     )
-    parser.add_argument(
-        "--run_name", type=str, default="wandb_run_name"
-    )
+    parser.add_argument("--run_name", type=str, default="wandb_run_name")
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
         "--output_file", default=None, required=False, help="file to save results (pkl)"
@@ -148,7 +146,13 @@ def ParseArguments():
     parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
-    parser.add_argument("--max_shape", type=int, default=1000, required=False, help="max number of samples used when training EM")
+    parser.add_argument(
+        "--max_shape",
+        type=int,
+        default=1000,
+        required=False,
+        help="max number of samples used when training EM",
+    )
     parser.add_argument(
         "--use_wandb_logging",
         action="store_true",
@@ -218,7 +222,6 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
             params_low = distributions[current_state]["params"]["low"]
             params_high = distributions[current_state]["params"]["high"]
             observations[k, :] = [
-
                 np.random.uniform(params_low[0], params_high[0]),
                 np.random.uniform(params_low[1], params_high[1]),
             ]
@@ -302,10 +305,15 @@ def draw_ellipse(position, covariance, ax, alpha):
 def calculate_accuracy(confusion_matrix: np.ndarray):
     total = np.sum(confusion_matrix)
     n = confusion_matrix.shape[0]
-    return max([
-        np.sum(np.diag(confusion_matrix[range(n), perm]))
-        for perm in permutations(range(n))
-    ])/total
+    return (
+        max(
+            [
+                np.sum(np.diag(confusion_matrix[range(n), perm]))
+                for perm in permutations(range(n))
+            ]
+        )
+        / total
+    )
 
 
 def main():
@@ -326,7 +334,7 @@ def main():
         project="flow-hmm",
         config=args,
         group=args.example_yaml,
-        name=args.run_name
+        name=args.run_name,
     )
     wandb.config["example_config"] = example_config._asdict()
 
@@ -383,11 +391,11 @@ def main():
 
         obs_mean = np.mean(obs_train, axis=0)
         obs_std = np.std(obs_train, axis=0)
-        obs_train = (obs_train - obs_mean)/obs_std
+        obs_train = (obs_train - obs_mean) / obs_std
 
-        obs_test = (obs_test - obs_mean)/obs_std
+        obs_test = (obs_test - obs_mean) / obs_std
 
-        #remove all rows with at least one NaN
+        # remove all rows with at least one NaN
         obs_train = obs_train[~np.isnan(obs_train).any(axis=1)]
         obs_test = obs_test[~np.isnan(obs_test).any(axis=1)]
 
@@ -410,7 +418,6 @@ def main():
             L = args.extra_L
 
         wandb.log({"n": n, "L": L, "m": m})
-
 
         A_orig = np.array(example_config.transition_matrix)
         mu_orig = compute_stat_distr(A_orig)
@@ -580,25 +587,37 @@ def main():
         #
         # Here we train Ghosh model
 
-    ghosh = GenHMM(n_states=L, n_prob_components=1, net_D=2, net_H=4, p_drop=0.0, device=device, lr=lrate, em_skip=nr_epochs).to(device)
+    ghosh = GenHMM(
+        n_states=L,
+        n_prob_components=1,
+        net_D=2,
+        net_H=4,
+        p_drop=0.0,
+        device=device,
+        lr=lrate,
+        em_skip=nr_epochs,
+    ).to(device)
     tol = 1e-2
     niter = 1
     verbose = True
-    ghosh.iepoch = '1'
+    ghosh.iepoch = "1"
     ghosh.iclass = 39
     ghosh.monitor_ = ConvgMonitor(tol, niter, verbose)
     ghosh.device = device
     ghosh.pushto(device)
-    xtrain = [obs_train] #[obs_train for k in range(100)]
+    xtrain = [obs_train]  # [obs_train for k in range(100)]
     xtest = [obs_test]  # [obs_train for k in range(100)]
     l = [x.shape[0] for x in xtrain]
     l_test = [x.shape[0] for x in xtest]
     max_len_ = max([x.shape[0] for x in xtrain])
     xtrain_padded = pad_data(xtrain, max_len_)
     # xtest_padded = pad_data(xtest, max_len_)
-    ghosh_data = DataLoader(dataset=TheDataset(xtrain_padded, lengths=l, device=device), batch_size=1,
-                           shuffle=True)
-    #ghosh_data = TheDataset([obs_train], [obs_train.shape[0]], device=device)
+    ghosh_data = DataLoader(
+        dataset=TheDataset(xtrain_padded, lengths=l, device=device),
+        batch_size=1,
+        shuffle=True,
+    )
+    # ghosh_data = TheDataset([obs_train], [obs_train.shape[0]], device=device)
     ghosh.number_training_data = len(xtrain)
 
     # set model into train mode
@@ -609,11 +628,15 @@ def main():
         ghosh.monitor_._reset()
 
     for iiter in range(niter):
-        #mdl.fit(traindata)
+        # mdl.fit(traindata)
         ghosh.iter = iiter
         flag = ghosh.fit(ghosh_data)
 
-    gosh_data_test = DataLoader(dataset=TheDataset(xtest, lengths=l_test, device=device), batch_size=1, shuffle=False)
+    gosh_data_test = DataLoader(
+        dataset=TheDataset(xtest, lengths=l_test, device=device),
+        batch_size=1,
+        shuffle=False,
+    )
     data = next(iter(gosh_data_test))
     logprobs_test = ghosh.pred_score(data)
     print(f"Test = {logprobs_test/obs_test.shape[0]}")

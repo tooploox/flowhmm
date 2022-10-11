@@ -568,7 +568,6 @@ class HMM_NMF_multivariate(torch.nn.Module):
                     "train/loss", loss.cpu().detach().numpy(), step=it
                 )
 
-
         return True
 
 

@@ -442,7 +442,6 @@ class HMM_NMF(torch.nn.Module):
                     "train/loss", loss.cpu().detach().numpy(), step=it
                 )
 
-
         return True
 
     def fit_EM(
