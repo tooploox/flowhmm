@@ -300,7 +300,7 @@ class HMM_NMF(torch.nn.Module):
         return P
 
     def score(self, observations):
-        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY
+        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY # TODO english
         model1D_hmmlearn_torch_multin_trained = MultinomialHMM(n_components=self.L)
         model1D_hmmlearn_torch_multin_trained.fit(np.arange(self.m).reshape(-1, 1))
 
@@ -444,7 +444,7 @@ class HMM_NMF(torch.nn.Module):
 
         return True
 
-    def fit_EM(
+    def fit_ML(
         self,
         observations,
         nr_epochs=5000,
@@ -594,7 +594,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
         return P
 
     def score(self, observations):
-        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY
+        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY # TODO english
         model1D_hmmlearn_torch_multin_trained = MultinomialHMM(
             n_components=self.L, random_state=42
         )
@@ -868,7 +868,7 @@ class HMM_NMF_FLOW(torch.nn.Module):
                     np.round(loss_numpy, 6),
                 )
 
-    def fit_EM(
+    def fit_ML(
         self,
         observations,
         nr_epochs=5000,

@@ -97,7 +97,7 @@ def ParseArguments():
         "--seed", default=1, type=int, required=False, help="default seed"
     )
     parser.add_argument(
-        "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
+        "--training_type", type=str, default="Q_training", choices=["ML", "Q_training"]
     )
     parser.add_argument("--run_name", type=str, default="wandb_run_name")
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
@@ -973,8 +973,8 @@ def main():
             nr_epochs=nr_epochs,
             display_info_every_step=1,
         )
-    if training_type == "EM":
-        model_hmm_nmf_torch_flow_multivariate.fit_EM(
+    if training_type == "ML":
+        model_hmm_nmf_torch_flow_multivariate.fit_ML(
             torch.tensor(obs_train, device=device),
             lr=lrate,
             nr_epochs=nr_epochs,

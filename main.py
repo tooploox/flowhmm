@@ -69,7 +69,7 @@ def ParseArguments():
     )
     parser.add_argument("--loss_type", type=str, default="kld", choices=["old", "kld"])
     parser.add_argument(
-        "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
+        "--training_type", type=str, default="Q_training", choices=["ML", "Q_training"]
     )
     parser.add_argument("--pretrain_flow", type=eval, default=False)
 
@@ -149,7 +149,7 @@ def ParseArguments():
         type=int,
         default=1000,
         required=False,
-        help="max number of samples used when training EM",
+        help="max number of samples used when training ML",
     )
 
     parser.add_argument(
@@ -593,8 +593,8 @@ def main():
             nr_epochs=nr_epochs,
             display_info_every_step=1,
         )
-    if training_type == "EM":
-        model_hmm_nmf_torch_flow.fit_EM(
+    if training_type == "ML":
+        model_hmm_nmf_torch_flow.fit_ML(
             torch.tensor(obs_train, device=device).float(),
             lr=lrate,
             nr_epochs=nr_epochs,

@@ -36,7 +36,7 @@ Gaussian baselines.
 ```bash
 python main.py -e examples/SYNTHETIC_2G_1U.yaml \
  --nr_epochs=500 \
- --training_type=Q_training # or EM \
+ --training_type=Q_training # or ML \
  --add_noise=True --noise_var=0.1 \
  --show_plots \
  --extra_n=$N 
@@ -53,7 +53,7 @@ We chose `N=1000, 10000, 100000`; see [SYNTHETIC_2G_1U.yaml](examples/SYNTHETIC_
 python main.py -e examples/SYNTHETIC_1B_1U.yaml \
  --nr_epochs=1000 \
  --add_noise=True --noise_var=0.00005 \
- --training_type=Q_training # or EM \
+ --training_type=Q_training # or ML \
  --show_plots \
  --extra_n=$N --extra_L=$L 
 ```
@@ -68,7 +68,7 @@ python main2d.py \
  -e examples/SYNTHETIC_2d_data_1U_2Moons.yaml # variant (a) \
  # -e examples/SYNTHETIC_2d_data_1U_2Moons_A2.yaml # variant (b) \
  --nr_epochs=500 \
- --training_type=Q_training # or EM \
+ --training_type=Q_training # or ML \
  --extra_n=1000 --lrate=0.01 \
  --add_noise --noise_var=0.001 \
  --show_plots
@@ -80,7 +80,7 @@ python main2d.py \
   -e examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion.yaml # variant (a) \
   # -e examples/SYNTHETIC_2d_data_1G_1U_1GeomBrownianMotion_A2.yaml # variant (b) \
   --nr_epochs=500
-  --training_type=Q_training # or EM \
+  --training_type=Q_training # or ML \
   --extra_n=1000 \ 
   --lrate=0.01  \
   --add_noise --noise_var=0.001 \
