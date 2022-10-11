@@ -1,13 +1,9 @@
 # test the batch forward, backward algorithm, and _compute_log_xi_sum
-import os
 import sys
 sys.path.append("..")
-from parse import parse
 from scipy.special import logsumexp
-import pickle as pkl
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
 from hmmlearn import _hmmc
 from _torch_hmmc import _forward, _backward, _compute_log_xi_sum
 
