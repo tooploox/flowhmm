@@ -1,0 +1,18 @@
+# Example 7
+
+data_type: real
+
+nr_hidden_states: 4  # can be overridden with --extra_L argument
+
+dataset:
+  filepath: data/real/amerigeoss/amerigeoss_diff.csv
+  
+  load_args:
+    header: 0 # None
+    compression: #gzip
+
+  column: [h10_humidity_mean,h10_humidity_stddev,p4_air_pressure_min,p4_air_pressure_max,p4_air_pressure_mean,p4_air_pressure_stddev]
+
+nr_observations: 40000  # n = 10000, T
+grid_size: 30           # m = 30
+grid_strategy: "uniform"

@@ -20,9 +20,9 @@ Gaussian baselines.
 # Installation
 ## Conda environment
 * Create the new conda environment
-> `conda env create -f conda/conda.yml`
+> `conda env create -f conda.yml`
 * or update the existing one
-> `conda env update -f conda/conda.yml --prune`
+> `conda env update -f conda.yml --prune`
 
 ## Packages installation
 * Install all the required packages with single command
