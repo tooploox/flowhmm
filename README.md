@@ -30,7 +30,7 @@ Gaussian baselines.
 
 # Examples
 
-* synthetic dataset with the following distributions (see Example 1 in paper):
+* synthetic dataset with the following distributions (see **Example 1** in paper):
   * 2 gaussians
   * 1 uniform
 ```bash
