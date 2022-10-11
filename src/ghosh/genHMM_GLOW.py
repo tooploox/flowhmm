@@ -25,7 +25,7 @@ class ConvgMonitor(ConvergenceMonitor):
         ----
         Args:
 
-        - logprob: (float) The logprob of the data as computed by the EM algorithm
+        - logprob: (float) The logprob of the data as computed by the ML algorithm
         in the current iteration
         """
 
@@ -170,7 +170,7 @@ class GenHMM(torch.nn.Module):
         self.dtype = dtype  # Data type to be used for tensors
         self.EPS = EPS  # Eps value (tolerance)
         self.lr = lr  # Learning rate
-        self.em_skip = em_skip  # Steps of EM algorithm to be used
+        self.em_skip = em_skip  # Steps of ML algorithm to be used
         self.in_channels = (
             net_D  # Considering the input format inside the GLOW model to be
         )
@@ -646,7 +646,7 @@ class GenHMM(torch.nn.Module):
 
     def _compute_posteriors(self, fwdlattice, bwdlattice):
         """
-        Computes posterior probabsnusing fwd and bkwd algorithm (in EM)
+        Computes posterior probabs using fwd and bkwd algorithm (in ML)
         """
         # gamma is guaranteed to be correctly normalized by logprob at
         # all frames, unless we do approximate inference using pruning.
@@ -753,7 +753,7 @@ class GenHMM(torch.nn.Module):
             # assert ((old_logprob <= 0).all())
 
             if testing:
-                # each EM step sync old_networks and networks, so it is ok to test on old_networks
+                # each ML step sync old_networks and networks, so it is ok to test on old_networks
                 return old_logprob
 
             old_bwdlattice = self._do_backward_pass(old_llh, x_mask)
@@ -816,11 +816,11 @@ class GenHMM(torch.nn.Module):
         This is the function that is mainly called by train_class_gen.py file
         Implements the pseudo code in the GenHMM paper
 
-        Performs one EM step and `em_skip` backprops before returning.
+        Performs one ML step and `em_skip` backprops before returning.
         'em_skip' denotes the number of steps that the algorithm skips to wait for the
-        GenHMM generative model to converge before it updates the HM params via EM algorithm
+        GenHMM generative model to converge before it updates the HM params via ML algorithm
 
-        The optimizer is re-initialized after each EM step.
+        The optimizer is re-initialized after each ML step.
         Follow the loss in stderr
         ----
         Input : traindata : torch.data.DataLoader object wrapping the batches.
@@ -875,7 +875,7 @@ class GenHMM(torch.nn.Module):
                 self.optimizer.zero_grad()
                 loss, logprob_ = self.forward(data, testing=False)
                 loss.backward()
-                # print("Loss for EM-Step:{} is {}".format(i, loss))
+                # print("Loss for ML-Step:{} is {}".format(i, loss))
                 self.optimizer.step()
                 total_loss += loss.detach().data
                 total_logprob += logprob_
@@ -898,7 +898,7 @@ class GenHMM(torch.nn.Module):
         # Updating the HMM params such as start probability vector, transmat, and mixture of
         # weights for the Generative model
         #####################################################################################
-        # Perform EM step
+        # Perform ML step
 
         # Update initial probability vector
         # startprob_ = self.startprob_prior - 1.0 + self.stats['start']

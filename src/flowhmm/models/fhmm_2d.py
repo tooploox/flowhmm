@@ -409,104 +409,6 @@ class HMM_NMF_multivariate(torch.nn.Module):
 
         return log_sums[-1].detach().cpu().numpy()
 
-    # def compute_P_torch(self, grid: torch.Tensor, add_noise=False, normalize=True):
-    #     P = torch.zeros(len(grid), len(self.means1d_hat)).to(grid.device)
-    #     for i, (mean, cov_un) in enumerate(zip(self.means1d_hat, self.covs1d_hat_un)):
-    #         dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
-    #         P[:, i] = dist_normal.log_prob(grid)
-    #
-    #     P = torch.exp(P)
-    #     if normalize:
-    #         P = torch.nn.functional.normalize(P, p=1, dim=0)
-    #     return P
-
-    # def score(self, observations):
-    #     # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY
-    #     model1D_hmmlearn_torch_multin_trained = MultinomialHMM(n_components=self.L)
-    #     model1D_hmmlearn_torch_multin_trained.fit(np.arange(self.m).reshape(-1, 1))
-    #
-    #     model1D_hmmlearn_torch_multin_trained.startprob_ = (
-    #         self.get_mu().reshape(-1).astype(float)
-    #     )
-    #     model1D_hmmlearn_torch_multin_trained.transmat_ = self.get_A().astype(float)
-    #
-    #     P = compute_P_torch(
-    #         torch.arange(self.m).to(self.device),
-    #         self.get_means1d(),
-    #         self.get_covs1d_un(),
-    #     )
-    #
-    #     model1D_hmmlearn_torch_multin_trained.emissionprob_ = np.array(
-    #         P.cpu().detach().numpy().T
-    #     ).astype(float)
-    #
-    #     P = P + 1
-    #     P[:, 0] = P[:, 0] / torch.sum(P[:, 0])
-    #     P[:, 1] = P[:, 1] / torch.sum(P[:, 1])
-    #     P[:, 2] = P[:, 2] / torch.sum(P[:, 2])
-    #
-    #     print(" in score: obs.shape = ", observations.shape)
-    #
-    #     return model1D_hmmlearn_torch_multin_trained.score(observations)
-    #
-    # def transition_model(self, log_alpha):
-    #     A = self.get_S() / torch.sum(self.get_S(), dim=1).unsqueeze(1)
-    #     log_transition_matrix = torch.log(A).transpose(1, 0)
-    #
-    #     # Matrix multiplication in the log domain
-    #     out = self.log_domain_matmul(
-    #         log_transition_matrix, log_alpha.view(-1, 1)
-    #     ).transpose(0, 1)
-    #     return out
-
-    # def log_domain_matmul(self, log_A, log_B):
-    #     """
-    #     log_A : m x n
-    #     log_B : n x p
-    #     output : m x p matrix
-    #
-    #     Normally, a matrix multiplication
-    #     computes out_{i,j} = sum_k A_{i,k} x B_{k,j}
-    #
-    #     A log domain matrix multiplication
-    #     computes out_{i,j} = logsumexp_k log_A_{i,k} + log_B_{k,j}
-    #     """
-    #     m = log_A.shape[0]
-    #     n = log_A.shape[1]
-    #     p = log_B.shape[1]
-    #
-    #     # log_A_expanded = torch.stack([log_A] * p, dim=2)
-    #     # log_B_expanded = torch.stack([log_B] * m, dim=0)
-    #     # fix for PyTorch > 1.5 by egaznep on Github:
-    #     log_A_expanded = torch.reshape(log_A, (m, n, 1))
-    #     log_B_expanded = torch.reshape(log_B, (1, n, p))
-    #
-    #     elementwise_sum = log_A_expanded + log_B_expanded
-    #     out = torch.logsumexp(elementwise_sum, dim=1)
-    #
-    #     return out
-    #
-    # def continuous_score(self, observations):
-    #     log_probs = []
-    #     x_all = observations.squeeze()
-    #     log_alpha = torch.zeros(x_all.shape[0], self.L).to(self.device)
-    #     log_state_priors = torch.log(torch.tensor(self.get_mu()).to(self.device))
-    #     x_tensor = torch.tensor(x_all).float().to(self.device)
-    #     for i, (mean, cov_un) in enumerate(zip(self.means1d_hat, self.covs1d_hat_un)):
-    #         dist_normal = td.Normal(loc=mean, scale=torch.sqrt(torch.exp(cov_un)))
-    #         log_px = dist_normal.log_prob(x_tensor)
-    #         log_probs.append(log_px)
-    #     emt = torch.stack([log_prob for log_prob in log_probs]).T.squeeze()
-    #     log_alpha[0] = emt[0] + log_state_priors
-    #     for t, x_t in enumerate(x_all[1:], 1):
-    #         # transition_model bierze alphy z poprzedniego kroku i tam w srodku uzywa A
-    #         log_alpha[t] = emt[t] + self.transition_model(log_alpha[t - 1])
-    #
-    #     # Select the sum for the final timestep (each x may have different length).
-    #     log_sums = log_alpha.logsumexp(dim=1)
-    #
-    #     return log_sums[-1].detach().cpu().numpy()
-
     def fit(
         self,
         grid,
@@ -641,7 +543,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
         return P
 
     def score(self, observations):
-        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY
+        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY # todo english
         model1D_hmmlearn_torch_multin_trained = MultinomialHMM(
             n_components=self.L, random_state=42
         )
@@ -862,7 +764,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
 
         return True
 
-    def fit_EM(
+    def fit_ML(
         self,
         observations,
         nr_epochs=5000,

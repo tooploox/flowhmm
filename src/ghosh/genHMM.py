@@ -26,7 +26,7 @@ class ConvgMonitor(ConvergenceMonitor):
         ___
         Args:
 
-        - logprob: (float) The logprob of the data as computed by the EM algorithm
+        - logprob: (float) The logprob of the data as computed by the ML algorithm
         in the current iteration
         """
 
@@ -582,7 +582,7 @@ class GenHMM(torch.nn.Module):
             # assert ((old_logprob <= 0).all())
 
             if testing:
-                # each EM step sync old_networks and networks, so it is ok to test on old_networks
+                # each ML step sync old_networks and networks, so it is ok to test on old_networks
                 return old_logprob
 
             old_bwdlattice = self._do_backward_pass(old_llh, x_mask)
@@ -641,7 +641,7 @@ class GenHMM(torch.nn.Module):
         return loss, logprob.sum()
 
     def fit(self, traindata):
-        """Performs one EM step and `em_skip` backprops before returning. The optimizer is re-initialized after each EM step.
+        """Performs one ML step and `ml_skip` backprops before returning. The optimizer is re-initialized after each ML step.
         Follow the loss in stderr
         Input : traindata : torch.data.DataLoader object wrapping the batches.
         Output : None
@@ -720,7 +720,7 @@ class GenHMM(torch.nn.Module):
         # generative model
         ################################################################################################
 
-        # Perform EM step
+        # Perform ML step
         # Update initial probabs
         # startprob_ = self.startprob_prior - 1.0 + self.stats['start']
         startprob_ = self.stats["start"]

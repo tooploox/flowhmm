@@ -20,7 +20,7 @@ class ConvgMonitor(ConvergenceMonitor):
         Parameters
         ----------
         logprob : float
-            The log probability of the data as computed by EM algorithm
+            The log probability of the data as computed by ML algorithm
             in the current iteration.
         """
         if self.verbose:
@@ -73,7 +73,7 @@ class Gaussian_HMM(hmm.GaussianHMM):
         """Estimate model parameters.
 
         An initialization step is performed before entering the
-        EM algorithm. If you want to avoid this step for a subset of
+        ML algorithm. If you want to avoid this step for a subset of
         the parameters, pass proper ``init_params`` keyword argument
         to estimator's constructor.
 
@@ -129,7 +129,7 @@ class GMM_HMM(hmm.GMMHMM):
         """Estimate model parameters.
 
         An initialization step is performed before entering the
-        EM algorithm. If you want to avoid this step for a subset of
+        ML algorithm. If you want to avoid this step for a subset of
         the parameters, pass proper ``init_params`` keyword argument
         to estimator's constructor.
 
