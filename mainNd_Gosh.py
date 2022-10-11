@@ -17,9 +17,9 @@ from sklearn.cluster import KMeans
 from sklearn.datasets import make_moons
 from torch.utils.data import DataLoader
 
-from src.ghosh.genHMM import GenHMM, ConvgMonitor
-from src.ghosh.utils import TheDataset, pad_data
-from utils import set_seed, load_example, compute_stat_distr
+from ghosh.genHMM import GenHMM, ConvgMonitor
+from ghosh.utils import TheDataset, pad_data
+from flowhmm.utils import set_seed, load_example, compute_stat_distr
 
 
 # sample usage

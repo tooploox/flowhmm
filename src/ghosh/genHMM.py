@@ -7,9 +7,9 @@ import wandb
 from hmmlearn.base import ConvergenceMonitor
 from torch import nn, distributions
 
-from src.ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
-from src.ghosh.realnvp import RealNVP
-from src.ghosh.utils import step_learning_rate_decay
+from ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
+from ghosh.realnvp import RealNVP
+from ghosh.utils import step_learning_rate_decay
 
 
 class ConvgMonitor(ConvergenceMonitor):

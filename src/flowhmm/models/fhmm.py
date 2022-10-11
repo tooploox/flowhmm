@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 from torch import distributions as td
 
-from src.flowhmm.utils import build_model_tabular, standard_normal_logprob
+from flowhmm.utils import build_model_tabular, standard_normal_logprob
 
 
 # import IPython

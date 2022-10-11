@@ -2,11 +2,11 @@
 
 import sys
 import numpy as np
-from src.ghosh.glow_model import FlowModel_GLOW, count_params
+from ghosh.glow_model import FlowModel_GLOW, count_params
 import torch
 from torch import nn, distributions
-from src.ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
-from src.ghosh.utils import step_learning_rate_decay
+from ghosh._torch_hmmc import _compute_log_xi_sum, _forward, _backward
+from ghosh.utils import step_learning_rate_decay
 from hmmlearn.base import ConvergenceMonitor
 from timeit import default_timer as timer
 
