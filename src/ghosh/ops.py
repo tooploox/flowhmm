@@ -1,8 +1,10 @@
-# This Script is a PyTorch implementation of the GLOW Model described in 
+# This Script is a PyTorch implementation of the GLOW Model described in
 # https://arxiv.org/abs/1807.03039
 
 # Model based on: https://github.com/corenel/pytorch-glow
 import torch
+
+
 def reduce_mean(tensor, dim=None, keepdim=False, out=None):
     """
     Returns the mean value of each row of the input tensor in the given dimension dim.
@@ -94,7 +96,7 @@ def tensor_equal(a, b, eps=1e-6):
     return 0 <= float(torch.max(torch.abs(a - b))) <= eps
 
 
-def split_channel(tensor, split_type='simple'):
+def split_channel(tensor, split_type="simple"):
     """
     Split channels of tensor
 
@@ -106,13 +108,13 @@ def split_channel(tensor, split_type='simple'):
     :rtype: tuple(torch.Tensor, torch.Tensor)
     """
     assert len(tensor.shape) == 3
-    assert split_type in ['simple', 'cross']
+    assert split_type in ["simple", "cross"]
 
     nc = tensor.shape[1]
-    if split_type == 'simple':
-        return tensor[:, :nc // 2, :], tensor[:, nc // 2:, :]
-        #return tensor[:, :nc // 2, ...], tensor[:, nc // 2:, ...]
-    elif split_type == 'cross':
+    if split_type == "simple":
+        return tensor[:, : nc // 2, :], tensor[:, nc // 2 :, :]
+        # return tensor[:, :nc // 2, ...], tensor[:, nc // 2:, ...]
+    elif split_type == "cross":
         return tensor[:, 0::2, :], tensor[:, 1::2, :]
         # return tensor[:, 0::2, ...], tensor[:, 1::2, ...]
 
@@ -128,7 +130,7 @@ def cat_channel(a, b, split_dim=1):
     :return: concatenated tensor
     :rtype: torch.Tensor
     """
-    #return torch.cat((a, b), dim=1)
+    # return torch.cat((a, b), dim=1)
     return torch.cat((a, b), dim=split_dim)
 
 
@@ -141,10 +143,11 @@ def count_pixels(tensor):
     :return: number of pixels
     :rtype: int
     """
-    #assert len(tensor.shape) == 4
-    #return int(tensor.shape[2] * tensor.shape[3])
+    # assert len(tensor.shape) == 4
+    # return int(tensor.shape[2] * tensor.shape[3])
     assert len(tensor.shape) == 3
     return int(tensor.shape[2])
+
 
 def onehot(y, num_classes):
     """
@@ -161,8 +164,8 @@ def onehot(y, num_classes):
     y_onehot = torch.zeros(y.shape[0], num_classes, device=y.device)
     if len(y.shape) == 1:
         y_onehot = y_onehot.scatter_(1, y.unsqueeze(-1), 1)
-        #y_onehot = y_onehot.scatter_(1, y.unsqueeze(-1), 1)
+        # y_onehot = y_onehot.scatter_(1, y.unsqueeze(-1), 1)
     else:
         y_onehot = y_onehot.scatter(1, y, 1)
-        #y_onehot = y_onehot.scatter_(1, y, 1)
+        # y_onehot = y_onehot.scatter_(1, y, 1)
     return y_onehot

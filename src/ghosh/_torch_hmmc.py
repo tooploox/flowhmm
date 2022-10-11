@@ -12,7 +12,7 @@ def _logaddexp(a, b, mask):
     out_put_a_mask = torch.isinf(b) & (b < 0)
     # in order not to take the padded number into account
     # stop do accumulating when iteration gets in padded data
-    out_put_a_mask = out_put_a_mask | ~ mask[:, None, None]
+    out_put_a_mask = out_put_a_mask | ~mask[:, None, None]
 
     # if no singularity cases happen, set the masks for logsumexp computations
     rest_mask = ~(out_put_a_mask | out_put_b_mask)
@@ -20,36 +20,44 @@ def _logaddexp(a, b, mask):
     # set value for found masks
     output[out_put_b_mask] = b[out_put_b_mask]
     output[out_put_a_mask] = a[out_put_a_mask]
-    c = torch.cat((a[None,:], b[None,:]), dim=0)
+    c = torch.cat((a[None, :], b[None, :]), dim=0)
     output[rest_mask] = torch.logsumexp(c, dim=0)[rest_mask]
-    
-    return output
-    
 
-def _compute_log_xi_sum(n_samples, n_components, fwdlattice, \
-                        log_transmat, bwdlattice, batch_framelogprob, \
-                        log_xi_sum, logprob, mask):
+    return output
+
+
+def _compute_log_xi_sum(
+    n_samples,
+    n_components,
+    fwdlattice,
+    log_transmat,
+    bwdlattice,
+    batch_framelogprob,
+    log_xi_sum,
+    logprob,
+    mask,
+):
     """Compute the gamma, in order to update transition matrix of hmm
-    INPUT: 
+    INPUT:
     n_samples: time step length of padded sequence, including padded zeros, i.e. max sequence length
     n_components: number of hmm states
 
     fwdlattice: batch fwdlattice. shape: batch_size * max_sequence_length. See output in method of _forward
-    
-    log_transmat: the log transition probability matrix of hmm, 
+
+    log_transmat: the log transition probability matrix of hmm,
                   shape: number of hmm states X number of hmm states
 
     bwdlattice: the batch bwdlattice, Shape: batch_size * max_sequence_length * number of hmm states
                 See output explanation in output format of _backward
-        
+
 
     batch_framelogprob: batch loglikelihood, the padded positions should be set as zeros
                   shape: batch_size * max sequence length * number of hmm states
-                  See example of _forward method input explanation 
-    
+                  See example of _forward method input explanation
+
     log_xi_sum: this input should be initialized as :
                 log_xi_sum = torch.ones(batch_size, n_components, n_components)*float('-inf')
-    
+
     logprob: the loglikelihood of sequences in batch data. Shape: 1 * batch_size. The first output of _forward method.
 
     mask: the mask of valid data in batch_framelogprob
@@ -57,43 +65,46 @@ def _compute_log_xi_sum(n_samples, n_components, fwdlattice, \
           example of mask for the above batch_framelogprob:
             [[1 1 1 0 0 0 0 0 0],
              [1 1 1 1 1 0 0 0 0]]
-    
+
     OUTPUT:
     log_xi_sum: the update log_xi_sum
     """
 
-    batch_size=batch_framelogprob.shape[0]
-    work_buffer = torch.zeros((batch_size, \
-                               log_transmat.shape[0], \
-                               log_transmat.shape[1]), \
-                              device=mask.device)
-    log_transmat = log_transmat.reshape(1,n_components,n_components).repeat(batch_size,1,1)
-    
-    
+    batch_size = batch_framelogprob.shape[0]
+    work_buffer = torch.zeros(
+        (batch_size, log_transmat.shape[0], log_transmat.shape[1]), device=mask.device
+    )
+    log_transmat = log_transmat.reshape(1, n_components, n_components).repeat(
+        batch_size, 1, 1
+    )
+
     for t in range(n_samples - 1):
         for i in range(n_components):
-            work_buffer[:, i,:] = fwdlattice[:, t, i].reshape(-1, 1) + \
-                               log_transmat[:, i, :] + \
-                               batch_framelogprob[:, t+1, :] + \
-                               bwdlattice[:, t+1, :] \
-                               - logprob.reshape(-1,1)
+            work_buffer[:, i, :] = (
+                fwdlattice[:, t, i].reshape(-1, 1)
+                + log_transmat[:, i, :]
+                + batch_framelogprob[:, t + 1, :]
+                + bwdlattice[:, t + 1, :]
+                - logprob.reshape(-1, 1)
+            )
 
-        log_xi_sum = _logaddexp(log_xi_sum, work_buffer, mask[:,t+1])  
+        log_xi_sum = _logaddexp(log_xi_sum, work_buffer, mask[:, t + 1])
 
     return log_xi_sum
 
 
-def _forward(n_samples, n_components, log_startprob,
-             log_transmat, batch_framelogprob, mask):
-    """Forward method implementation for batch 
+def _forward(
+    n_samples, n_components, log_startprob, log_transmat, batch_framelogprob, mask
+):
+    """Forward method implementation for batch
 
     INPUT:
     n_samples: time step length of padded sequence, including padded zeros, i.e. max sequence length
     n_components: number of hmm states
-    log_startprob: the startprob vector of hmm model, 
+    log_startprob: the startprob vector of hmm model,
                   shape: 1 X number of hmm states
-    
-    log_transmat: the log transition probability matrix of hmm, 
+
+    log_transmat: the log transition probability matrix of hmm,
                   shape: number of hmm states X number of hmm states
 
     batch_framelogprob: batch loglikelihood, the padded positions should be set as zeros
@@ -127,7 +138,7 @@ def _forward(n_samples, n_components, log_startprob,
 
     OUTPUT:
     batch_logprob: batch loglikelihood of sequence given hmm (only valid data are considered, excluding padding zeros)
-                   shape: 1 * batch_size  
+                   shape: 1 * batch_size
                    For instance: [-2.9063, -4.1796]
     fwdlattice: batch fwdlattice. shape: batch_size * max_sequence_length
         example of batch fwdlattice:
@@ -154,23 +165,28 @@ def _forward(n_samples, n_components, log_startprob,
 
     batch_size = batch_framelogprob.shape[0]
     fwdlattice = torch.zeros_like(batch_framelogprob)
-            
-    fwdlattice[:, 0, :] = log_startprob + batch_framelogprob[:,0, :]
+
+    fwdlattice[:, 0, :] = log_startprob + batch_framelogprob[:, 0, :]
     for t in range(1, n_samples):
         for j in range(n_components):
-            work_buffer = fwdlattice[:, t-1, :] + log_transmat[:, j]
+            work_buffer = fwdlattice[:, t - 1, :] + log_transmat[:, j]
             # fwdlattice[:,t, j] = torch.logsumexp(work_buffer, dim=-1) + \
-            #                      framelogprob[:,t, j] 
-    
-            fwdlattice[:,t, j] = torch.logsumexp(work_buffer, dim=-1) * \
-                                 mask[:, t].type(batch_framelogprob.dtype) + batch_framelogprob[:,t, j] 
+            #                      framelogprob[:,t, j]
+
+            fwdlattice[:, t, j] = (
+                torch.logsumexp(work_buffer, dim=-1)
+                * mask[:, t].type(batch_framelogprob.dtype)
+                + batch_framelogprob[:, t, j]
+            )
 
     # need to find the idx for last sample of each sequence by mask.sum(dim=-1)-1, fwdlattice[:, -1, :] would give the padded zeros
-    batch_logprob = torch.logsumexp(fwdlattice[list(range(batch_size)), mask.sum(dim=-1)-1, :], dim=-1)
+    batch_logprob = torch.logsumexp(
+        fwdlattice[list(range(batch_size)), mask.sum(dim=-1) - 1, :], dim=-1
+    )
     return batch_logprob, fwdlattice
 
-def _backward(n_samples, n_components, log_startprob,
-              log_transmat, framelogprob, mask):
+
+def _backward(n_samples, n_components, log_startprob, log_transmat, framelogprob, mask):
     """Backward method, implemented in batch
     INPUT: format is same as the input of _forward method
 
@@ -200,12 +216,15 @@ def _backward(n_samples, n_components, log_startprob,
                  [ 0.0000, -0.0000,  0.0000, -0.0000],
                  [ 0.0000,  0.0000,  0.0000,  0.0000]]], dtype=torch.float64)
     """
-    
+
     bwdlattice = torch.zeros_like(framelogprob)
     # last row is already zeros, so omit the zero setting step
     for t in range(n_samples - 2, -1, -1):
         for i in range(n_components):
-            work_buffer = log_transmat[i,:] + framelogprob[:,t + 1, :] + bwdlattice[:,t+1, :]
-            bwdlattice[:, t, i] = torch.logsumexp(work_buffer, dim=-1) * mask[:, t+1].type(framelogprob.dtype)
+            work_buffer = (
+                log_transmat[i, :] + framelogprob[:, t + 1, :] + bwdlattice[:, t + 1, :]
+            )
+            bwdlattice[:, t, i] = torch.logsumexp(work_buffer, dim=-1) * mask[
+                :, t + 1
+            ].type(framelogprob.dtype)
     return bwdlattice
-

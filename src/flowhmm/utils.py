@@ -28,7 +28,7 @@ def compute_stat_distr(A: np.ndarray):
     return stat_distr
 
 
-def compute_joint_trans_matrix(A: torch.Tensor, device='cpu'):
+def compute_joint_trans_matrix(A: torch.Tensor, device="cpu"):
     stat_distr = compute_stat_distr(A.cpu().numpy())
     stat_distr_diag = torch.diag(torch.tensor(stat_distr, device=device))
     # S=torch.matmul(A,stat_distr_diag)

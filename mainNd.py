@@ -100,9 +100,7 @@ def ParseArguments():
     parser.add_argument(
         "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
     )
-    parser.add_argument(
-        "--run_name", type=str, default="wandb_run_name"
-    )
+    parser.add_argument("--run_name", type=str, default="wandb_run_name")
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
         "--output_file", default=None, required=False, help="file to save results (pkl)"
@@ -152,7 +150,13 @@ def ParseArguments():
     parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
-    parser.add_argument("--max_shape", type=int, default=1000, required=False, help="max number of samples used when training EM")
+    parser.add_argument(
+        "--max_shape",
+        type=int,
+        default=1000,
+        required=False,
+        help="max number of samples used when training EM",
+    )
     parser.add_argument(
         "--use_wandb_logging",
         action="store_true",
@@ -222,7 +226,6 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
             params_low = distributions[current_state]["params"]["low"]
             params_high = distributions[current_state]["params"]["high"]
             observations[k, :] = [
-
                 np.random.uniform(params_low[0], params_high[0]),
                 np.random.uniform(params_low[1], params_high[1]),
             ]
@@ -306,10 +309,15 @@ def draw_ellipse(position, covariance, ax, alpha):
 def calculate_accuracy(confusion_matrix: np.ndarray):
     total = np.sum(confusion_matrix)
     n = confusion_matrix.shape[0]
-    return max([
-        np.sum(np.diag(confusion_matrix[range(n), perm]))
-        for perm in permutations(range(n))
-    ])/total
+    return (
+        max(
+            [
+                np.sum(np.diag(confusion_matrix[range(n), perm]))
+                for perm in permutations(range(n))
+            ]
+        )
+        / total
+    )
 
 
 def main():
@@ -330,7 +338,7 @@ def main():
         project="flow-hmm",
         config=args,
         group=args.example_yaml,
-        name=args.run_name
+        name=args.run_name,
     )
     wandb.config["example_config"] = example_config._asdict()
 
@@ -364,7 +372,6 @@ def main():
         ic(dataset, df.columns, df.describe())
         print("ASDF")
 
-
         df_train = df[dataset["column"]].values
         polyaxon.tracking.log_dataframe(df, "df_raw")
         # df_train = (df_train - df_train.mean()) / df_train.std()
@@ -389,11 +396,11 @@ def main():
 
         obs_mean = np.mean(obs_train, axis=0)
         obs_std = np.std(obs_train, axis=0)
-        obs_train = (obs_train - obs_mean)/obs_std
+        obs_train = (obs_train - obs_mean) / obs_std
 
-        obs_test = (obs_test - obs_mean)/obs_std
+        obs_test = (obs_test - obs_mean) / obs_std
 
-        #remove all rows with at least one NaN
+        # remove all rows with at least one NaN
         obs_train = obs_train[~np.isnan(obs_train).any(axis=1)]
         obs_test = obs_test[~np.isnan(obs_test).any(axis=1)]
 
@@ -416,7 +423,6 @@ def main():
             L = args.extra_L
 
         wandb.log({"n": n, "L": L, "m": m})
-
 
         A_orig = np.array(example_config.transition_matrix)
         mu_orig = compute_stat_distr(A_orig)
@@ -585,13 +591,7 @@ def main():
         # polyaxon.tracking.log_inputs(m=m)
         #
 
-        wandb.log(
-            {
-                "n": n,
-                "T": n,
-                "L": L,
-                "m": m
-            })
+        wandb.log({"n": n, "T": n, "L": L, "m": m})
 
         # Pamietajmy: m=grid_all.shape[0]
         grid_labels = list(range(mm))
@@ -638,7 +638,9 @@ def main():
     )
 
     model_hmmlearn_gaussian_trained_test.fit(obs_train)
-    logprob_hmmlearn_gaussian_trained_models = model_hmmlearn_gaussian_trained_test.score(obs_test)
+    logprob_hmmlearn_gaussian_trained_models = (
+        model_hmmlearn_gaussian_trained_test.score(obs_test)
+    )
     for i in np.arange(len(n_mix_list)):
         model_hmmlearn_gmmhmm_trained_models[i].fit(obs_train)
         logprob_hmmlearn_gmmhmm_trained_models[
@@ -687,7 +689,12 @@ def main():
             "logprob_hmmlearn_gmmhmm_trained_models " + str(n_mix_list[i]) + "=\t\t",
             logprob_hmmlearn_gmmhmm_trained_models[i] / obs_test.shape[0],
         )
-        wandb.log({f"G{str(n_mix_list[i])}": logprob_hmmlearn_gmmhmm_trained_models[i] / obs_test.shape[0]})
+        wandb.log(
+            {
+                f"G{str(n_mix_list[i])}": logprob_hmmlearn_gmmhmm_trained_models[i]
+                / obs_test.shape[0]
+            }
+        )
 
     print(
         "logprob_flow_test_continuous =\t\t",

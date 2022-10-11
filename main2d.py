@@ -99,9 +99,7 @@ def ParseArguments():
     parser.add_argument(
         "--training_type", type=str, default="Q_training", choices=["EM", "Q_training"]
     )
-    parser.add_argument(
-        "--run_name", type=str, default="wandb_run_name"
-    )
+    parser.add_argument("--run_name", type=str, default="wandb_run_name")
     parser.add_argument("--lrate", default="0.01", required=False, help="learning rate")
     parser.add_argument(
         "--output_file", default=None, required=False, help="file to save results (pkl)"
@@ -151,7 +149,13 @@ def ParseArguments():
     parser.add_argument("--polyaxon", action="store_true")
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
-    parser.add_argument("--max_shape", type=int, default=1000, required=False, help="max number of samples used when training EM")
+    parser.add_argument(
+        "--max_shape",
+        type=int,
+        default=1000,
+        required=False,
+        help="max number of samples used when training EM",
+    )
     parser.add_argument(
         "--use_wandb_logging",
         action="store_true",
@@ -221,7 +225,6 @@ def simulate_observations_multivariate(n, mu, transmat, distributions):
             params_low = distributions[current_state]["params"]["low"]
             params_high = distributions[current_state]["params"]["high"]
             observations[k, :] = [
-
                 np.random.uniform(params_low[0], params_high[0]),
                 np.random.uniform(params_low[1], params_high[1]),
             ]
@@ -305,10 +308,15 @@ def draw_ellipse(position, covariance, ax, alpha):
 def calculate_accuracy(confusion_matrix: np.ndarray):
     total = np.sum(confusion_matrix)
     n = confusion_matrix.shape[0]
-    return max([
-        np.sum(np.diag(confusion_matrix[range(n), perm]))
-        for perm in permutations(range(n))
-    ])/total
+    return (
+        max(
+            [
+                np.sum(np.diag(confusion_matrix[range(n), perm]))
+                for perm in permutations(range(n))
+            ]
+        )
+        / total
+    )
 
 
 def main():
@@ -329,7 +337,7 @@ def main():
         project="flow-hmm",
         config=args,
         group=args.example_yaml,
-        name=args.run_name
+        name=args.run_name,
     )
     wandb.config["example_config"] = example_config._asdict()
 
@@ -611,13 +619,7 @@ def main():
         # polyaxon.tracking.log_inputs(m=m)
         #
 
-        wandb.log(
-            {
-                "n": n,
-                "T": n,
-                "L": L,
-                "m": m
-            })
+        wandb.log({"n": n, "T": n, "L": L, "m": m})
 
         # Pamietajmy: m=grid_all.shape[0]
         grid_labels = list(range(mm))
@@ -814,9 +816,7 @@ def main():
     GMMHMM_accuracy_scores = [
         metrics.accuracy_score(
             hidden_states_test,
-            model_hmmlearn_gmmhmm_trained_models[i].predict(
-                obs_test
-            ),
+            model_hmmlearn_gmmhmm_trained_models[i].predict(obs_test),
         )
         for i in np.arange(len(n_mix_list))
     ]
@@ -824,9 +824,7 @@ def main():
     GMMHMM_conf_matrices = [
         metrics.confusion_matrix(
             hidden_states_test,
-            model_hmmlearn_gmmhmm_trained_models[i].predict(
-                obs_test
-            ),
+            model_hmmlearn_gmmhmm_trained_models[i].predict(obs_test),
         )
         for i in np.arange(len(n_mix_list))
     ]
@@ -857,7 +855,6 @@ def main():
     wandb.log({f"acc/G": accuracy_G})
     print({f"acc/G": accuracy_G})
 
-
     test_means_trained = (
         torch.tensor(model_hmmlearn_gaussian_trained_test.means_).float().to(device)
     )
@@ -885,8 +882,6 @@ def main():
         # loss_type="old" #
         loss_type=loss_type,
     )
-
-
 
     logprob_hmmlearn_gaussian_trained_test = model_hmmlearn_gaussian_trained_test.score(
         obs_test
@@ -1002,7 +997,12 @@ def main():
         "logprob_hmmlearn_gaussian_trained =\t\t",
         logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
     )
-    wandb.log({"logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained / obs_test.shape[0]})
+    wandb.log(
+        {
+            "logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained
+            / obs_test.shape[0]
+        }
+    )
     wandb.log({"G": logprob_hmmlearn_gaussian_trained / obs_test.shape[0]})
 
     print(
@@ -1031,9 +1031,7 @@ def main():
     )
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)"), "red")
-    print(
-        colored("ACCURACY: flow =\t\t" + str(model_flow_accuracy), "red")
-    )
+    print(colored("ACCURACY: flow =\t\t" + str(model_flow_accuracy), "red"))
 
     print(colored("ACCURACY (predict hidden states, compare to known ones)", "red"))
     print(
@@ -1057,9 +1055,9 @@ def main():
     print(colored("LOGPROBS (normalized)"), "red")
 
     print(
-            "logprob_hmmlearn_gaussian_trained =\t\t",
-            logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
-        )
+        "logprob_hmmlearn_gaussian_trained =\t\t",
+        logprob_hmmlearn_gaussian_trained / obs_test.shape[0],
+    )
     print(
         "logprob_torch_trained_continuous1= \t\t",
         logprob_torch_trained_continuous1 / obs_test.shape[0],
@@ -1228,7 +1226,13 @@ def main():
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
-        wandb.log({"Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs": wandb.Image(fig)})
+        wandb.log(
+            {
+                "Continuous obs. + fitted gaussians HMMLEARN to orig. cont. obs": wandb.Image(
+                    fig
+                )
+            }
+        )
 
         # FITTED GAUSSIANS HMMLEARN to DISCRETIZED obs.
         fig = plt.figure()
@@ -1265,7 +1269,13 @@ def main():
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
-        wandb.log({"Continuous obs. + fitted gaussians HMMLEARN to DISCRETIZED  obs.": wandb.Image(fig)})
+        wandb.log(
+            {
+                "Continuous obs. + fitted gaussians HMMLEARN to DISCRETIZED  obs.": wandb.Image(
+                    fig
+                )
+            }
+        )
 
         # FITTED GAUSSIANS TORCH
         fig = plt.figure()
@@ -1316,7 +1326,12 @@ def main():
             print("mean = ", mean)
             print("cov matrix = ", cov_matrix)
 
-        wandb.log({"Continuous obs. + fitted gaussians TORCH, loss = " + str(loss_type): wandb.Image(fig)})
+        wandb.log(
+            {
+                "Continuous obs. + fitted gaussians TORCH, loss = "
+                + str(loss_type): wandb.Image(fig)
+            }
+        )
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -1358,7 +1373,12 @@ def main():
                 label="flow number: " + str(i),
             )
 
-        wandb.log({"Continuous obs. + fitted Flow, loss = " + str(loss_type): wandb.Image(fig)})
+        wandb.log(
+            {
+                "Continuous obs. + fitted Flow, loss = "
+                + str(loss_type): wandb.Image(fig)
+            }
+        )
 
     plt.show()
     print("done")

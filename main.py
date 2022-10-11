@@ -9,6 +9,7 @@ import polyaxon
 import polyaxon.tracking
 import scipy.stats
 import torch
+import wandb
 from hmmlearn.hmm import GaussianHMM, GMMHMM
 from icecream import ic
 from matplotlib import pyplot as plt
@@ -17,7 +18,6 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from termcolor import colored
 
-import wandb
 from flowhmm.models.fhmm import HMM_NMF, HMM_NMF_FLOW
 from flowhmm.models.fhmm import show_distrib, compute_total_var_dist, compute_MAD
 from flowhmm.utils import (
@@ -144,7 +144,13 @@ def ParseArguments():
     parser.add_argument("--polyaxon", type=bool, default=False)
     parser.add_argument("--extra_n", type=int, required=False)
     parser.add_argument("--extra_L", type=int, required=False)
-    parser.add_argument("--max_shape", type=int, default=1000, required=False, help="max number of samples used when training EM")
+    parser.add_argument(
+        "--max_shape",
+        type=int,
+        default=1000,
+        required=False,
+        help="max number of samples used when training EM",
+    )
 
     parser.add_argument(
         "--use_wandb_logging",
@@ -220,7 +226,7 @@ def main():
         project="flow-hmm",
         config=args,
         group=args.example_yaml,
-        name=args.example_yaml
+        name=args.example_yaml,
     )
     wandb.config["example_config"] = example_config._asdict()
 
@@ -331,9 +337,8 @@ def main():
     # SYNTHETIC DATASETS
     elif example_config.data_type == "synthetic":
 
-        L = (
-            example_config.nr_hidden_states
-            or len(example_config.hidden_states_distributions)
+        L = example_config.nr_hidden_states or len(
+            example_config.hidden_states_distributions
         )
 
         m = example_config.grid_size
@@ -398,13 +403,7 @@ def main():
         polyaxon.tracking.log_inputs(L=L)
         polyaxon.tracking.log_inputs(m=m)
 
-        wandb.log(
-            {
-                "n": n,
-                "T": n,
-                "L": L,
-                "m": m
-            })
+        wandb.log({"n": n, "T": n, "L": L, "m": m})
 
         grid_labels = list(range(m))
         grid_large = np.linspace(np.min(grid), np.max(grid), m * 10)
@@ -677,8 +676,10 @@ def main():
 
     S_GMMHMM_list = [
         compute_joint_trans_matrix(
-            torch.tensor(model1D_hmmlearn_gmmhmm_trained_models[i].transmat_, device=device),
-            device=device
+            torch.tensor(
+                model1D_hmmlearn_gmmhmm_trained_models[i].transmat_, device=device
+            ),
+            device=device,
         )
         for i in np.arange(len(B_large_GMMHMM_list))
     ]
@@ -980,7 +981,6 @@ def main():
 
                 wandb.log({f"dtv-G{i}": total_vars_means_GMMHMM_trained[nr]})
 
-
         else:
             total_vars_GaussianHMM_trained = -1
             total_vars_torch_trained = -1
@@ -1053,7 +1053,12 @@ def main():
         )
     )
 
-    wandb.log({"logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained / n_test})
+    wandb.log(
+        {
+            "logprob_hmmlearn_gaussian_trained": logprob_hmmlearn_gaussian_trained
+            / n_test
+        }
+    )
     wandb.log({"G": logprob_hmmlearn_gaussian_trained / n_test})
 
     print(
@@ -1140,7 +1145,6 @@ def main():
 
     if show_plots:
         plt.show()
-
 
 
 if __name__ == "__main__":
