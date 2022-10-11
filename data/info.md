@@ -1,23 +1,12 @@
-Real datasets moved to Google Drive:
-https://drive.google.com/drive/folders/1saUUJl9waEzRSWW8MJjS9y0vbbl6VeBx
+## Wind-Measurements_Papua dataset
+source: https://data.amerigeoss.org/dataset/857a9652-1a8f-4098-9f51-433a81583387/resource/a8db6cec-8faf-4c8e-aee2-4fb45d1e6f14
 
+see files
+* `amerigeoss/*.csv` 
 
-This folder should have the following structure:
-```
-├── info.txt
-└── real
-    ├── DowJones
-    │   └── DowJones_diff_2.csv
-    ├── SP500
-    │   └── SP500.csv
-    └── wind
-        ├── pres.csv
-        ├── pres_diff.csv
-        ├── url_used.txt
-        ├── url_wind.txt
-        ├── wind1.csv
-        ├── wind1_diff.csv
-        ├── wind_dir.csv
-        ├── wind_dir_diff.csv
-        └── wind-measurements_papua-new-guinea_launakalana_wb-esmap_qc.csv
-```
+## Stock Market datasets
+source: https://data.world/login?next=%2Fchasewillden%2Fstock-market-from-a-high-level%2Fworkspace%2F
+
+see files: 
+* `SP500.csv` 
+* `DowJones.csv`
