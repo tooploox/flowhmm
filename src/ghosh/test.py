@@ -1,7 +1,7 @@
 # test the batch forward, backward algorithm, and _compute_log_xi_sum
 import os
 import sys
-sys.path.append("../..")
+sys.path.append("..")
 from parse import parse
 from scipy.special import logsumexp
 import pickle as pkl
