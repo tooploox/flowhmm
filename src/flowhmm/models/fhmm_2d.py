@@ -11,7 +11,7 @@ from icecream import ic
 from matplotlib import pyplot as plt
 from torch import distributions as td
 
-from src.flowhmm.utils import build_model_tabular, standard_normal_logprob
+from flowhmm.utils import build_model_tabular, standard_normal_logprob
 
 
 # import IPython

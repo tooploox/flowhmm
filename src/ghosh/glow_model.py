@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 from torch import distributions
 from sklearn import datasets
-from src.ghosh.glow_modules import *
-from src.ghosh.plot_functions import plot_results
+from ghosh.glow_modules import *
+from ghosh.plot_functions import plot_results
 from torch.autograd import detect_anomaly
 from datetime import datetime
 
