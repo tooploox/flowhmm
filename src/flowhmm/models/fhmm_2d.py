@@ -543,7 +543,7 @@ class HMM_NMF_FLOW_multivariate(torch.nn.Module):
         return P
 
     def score(self, observations):
-        # ROBIMY TAK: BIERZEMY MULTINOMIAL HMMLEARN I PODSTAWIAMY # todo english
+        # MULTINOMIAL HMMLEARN
         model1D_hmmlearn_torch_multin_trained = MultinomialHMM(
             n_components=self.L, random_state=42
         )
