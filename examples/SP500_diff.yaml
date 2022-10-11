@@ -4,12 +4,12 @@ data_type: real
 nr_hidden_states: 4 #  can be overridden with --extra_L argument
 
 dataset:
-  filepath: data/real/SP500/SP500.csv
+  filepath: data/SP500.csv
   load_args:
-    header: 0  # None
-    compression: #gzip
+    header: 0
+    compression:
 
-  column: Diff # Diff #logreturn
+  column: Diff # Diff or logreturn
 
 nr_observations: 1000  # n = 10000, T
 grid_size: 30           # m = 30

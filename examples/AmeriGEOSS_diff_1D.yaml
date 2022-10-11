@@ -5,14 +5,14 @@ data_type: real
 nr_hidden_states: 4  # can be overridden with --extra_L argument
 
 dataset:
-  filepath: data/real/amerigeoss/pres_diff.csv
+  filepath: data/amerigeoss/pres_diff.csv
 
   load_args:
-    header: 0 # None
-    compression: #gzip
+    header: 0
+    compression:
 
   column: Diff
 
-nr_observations: 40000  # n = 10000, T
-grid_size: 30           # m = 30
+nr_observations: 40000  # (n in paper)
+grid_size: 30           # (m in paper)
 grid_strategy: "uniform"

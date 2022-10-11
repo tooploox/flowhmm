@@ -128,9 +128,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/data/real/
-/wandb/
-/polyaxonfiles/
 
 # Poetry
 poetry.lock
@@ -138,3 +135,8 @@ poetry.lock
 # Model checkpoints
 *.pt
 
+# W&B tracking files
+/wandb
+
+# Polyaxon (internal) infrastructure
+/polyaxonfiles
