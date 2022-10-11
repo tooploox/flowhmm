@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 import CNF_lib.layers as layers
-from CNF_lib.layers.odefunc import ODEnet
+from CNF_lib.layers import ODEnet
 
 
 class MultiscaleParallelCNF(nn.Module):
