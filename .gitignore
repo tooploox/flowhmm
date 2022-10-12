@@ -139,4 +139,5 @@ poetry.lock
 /wandb
 
 # Polyaxon (internal) infrastructure
+.polyaxonignore
 /polyaxonfiles
