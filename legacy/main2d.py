@@ -20,8 +20,8 @@ from termcolor import colored
 from sklearn.datasets import make_moons
 from sklearn import metrics
 
-from models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
-from utils import set_seed, load_example, compute_stat_distr, compute_joint_trans_matrix
+from flowhmm.models.fhmm_2d import HMM_NMF_multivariate, HMM_NMF_FLOW_multivariate
+from flowhmm.utils import set_seed, load_example, compute_stat_distr, compute_joint_trans_matrix
 
 
 # sample usage
